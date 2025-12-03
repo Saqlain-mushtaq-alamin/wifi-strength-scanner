@@ -1,13 +1,16 @@
-📁 🔥 Perfect Repo Structure 
-# WiFi Strength Scanner
+# 📁 WiFi Strength Scanner
 
+A comprehensive tool for scanning and visualizing WiFi signal strength with heatmap generation.
+
+## Project Structure
+
+```
 wifi-strength-scanner/
-│
 ├── app/
 │   ├── main.py
 │   ├── config.py
-│   ├── resources/           # icons, qrc, default images
-│   ├── ui/                  # all UI-related files
+│   ├── resources/              # Icons, QRC files, default images
+│   ├── ui/                     # UI-related files
 │   │   ├── main_window.py
 │   │   ├── upload_page.py
 │   │   ├── scan_page.py
@@ -15,25 +18,23 @@ wifi-strength-scanner/
 │   │   └── widgets/
 │   │       ├── blueprint_viewer.py
 │   │       └── point_marker.py
-│   │
-│   ├── core/                # backend logic
-│   │   ├── scanner.py       # netsh parser
+│   ├── core/                   # Backend logic
+│   │   ├── scanner.py          # Netsh parser
 │   │   ├── heatmap_engine.py
-│   │   ├── interpolation.py # IDW
-│   │   ├── data_store.py    # JSON / sqlite wrapper
+│   │   ├── interpolation.py    # IDW algorithm
+│   │   ├── data_store.py       # JSON/SQLite wrapper
 │   │   ├── project_manager.py
-│   │   └── image_blender.py # blend heatmap + blueprint
-│   │
+│   │   └── image_blender.py    # Blend heatmap + blueprint
 │   └── utils/
 │       ├── file_dialogs.py
 │       ├── paths.py
 │       └── logger.py
-│
 ├── build/
-│   ├── installer/           # NSIS or Inno Setup scripts
-│   ├── dist/                # final .exe goes here
+│   ├── installer/              # NSIS or Inno Setup scripts
+│   ├── dist/                   # Final .exe output
 │   └── pyinstaller.spec
-│
 ├── requirements.txt
 ├── README.md
-└── LICENSE (optional)
+└── LICENSE
+```
+
