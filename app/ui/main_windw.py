@@ -1,19 +1,18 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QFileDialog, QLabel,
-    QVBoxLayout, QHBoxLayout, QSizePolicy
+    QMainWindow, QWidget, QFileDialog, QVBoxLayout, QHBoxLayout
 )
 from qfluentwidgets import PrimaryPushButton, InfoBar, InfoBarPosition
+
+from app.ui.widgets.blueprint_viewer import BlueprintViewer
 
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle("Image Viewer - PySide6 + QFluentWidgets")
-        self._pixmap: QPixmap | None = None
-
+        self.setWindowTitle("WiFi Strength Scanner(wfss)")
         self._setup_ui()
 
     def _setup_ui(self):
@@ -34,20 +33,16 @@ class MainWindow(QMainWindow):
         top_bar.addWidget(self.upload_btn, 0, Qt.AlignmentFlag.AlignLeft)
         top_bar.addStretch(1)
 
-        # Image display area
-        self.image_label = QLabel(self)
-        self.image_label.setText("No image loaded")
-        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # Prevent QLabel's pixmap sizeHint from expanding the window
-        self.image_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
-        self.image_label.setMinimumSize(1, 1)
-        self.image_label.setStyleSheet(
-            "QLabel { background: rgba(120,120,120,0.08); "
-            "border: 1px dashed rgba(120,120,120,0.35); }"
-        )
+        # Image viewer with invisible virtual grid
+        self.viewer = BlueprintViewer(self)
+        # Optional: tune grid resolution here or via set_grid_size()
+        # self.viewer.set_grid_size(100)
+
+        # Receive clicks (gridX, gridY, imgX, imgY)
+        self.viewer.pointClicked.connect(self._on_point_clicked)
 
         main_layout.addLayout(top_bar)
-        main_layout.addWidget(self.image_label, 1)
+        main_layout.addWidget(self.viewer, 1)
 
     def _on_upload_clicked(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -69,24 +64,15 @@ class MainWindow(QMainWindow):
             )
             return
 
-        self._pixmap = pix
-        self._update_scaled_pixmap()
+        self.viewer.set_pixmap(pix)
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._update_scaled_pixmap()
-
-    def _update_scaled_pixmap(self):
-        if not self._pixmap:
-            return
-
-        available_size = self.image_label.size()
-        if available_size.width() < 2 or available_size.height() < 2:
-            return
-
-        scaled = self._pixmap.scaled(
-            available_size,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
+    def _on_point_clicked(self, gx: int, gy: int, ix: float, iy: float):
+        # Show a small toast with the coordinates
+        InfoBar.success(
+            title="Point added",
+            content=f"Grid: ({gx}, {gy}) | Image px: ({ix:.1f}, {iy:.1f})",
+            position=InfoBarPosition.TOP_RIGHT,
+            parent=self
         )
-        self.image_label.setPixmap(scaled)
+        # Also print to terminal if you want
+        print(f"Clicked grid=({gx},{gy}) image=({ix:.1f},{iy:.1f})")

@@ -38,4 +38,3 @@ wifi-strength-scanner/
 ├── README.md
 └── LICENSE
 ```
-
