@@ -21,12 +21,27 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_container)
 
         #  apply background style
-        
-
-
-
-
+        # Create a widget container for everything except the title
         self.main_layout = QVBoxLayout(self.central_container)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
+
+# Content widget for background styling
+        content_widget = QWidget() 
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+
+        content_widget.setStyleSheet("""
+    QWidget {
+        background: qlineargradient(
+            x1:0, y1:0, x2:1, y2:1,
+            stop:0 #0a0f1e,
+            stop:0.5 #0c162c,
+            stop:1 #0d203a
+        );
+    }
+""")
 
         # =========================================================
         # TITLE SECTION — stays at the top
@@ -142,7 +157,12 @@ PrimaryPushButton:pressed {
 
         buttons_layout.addStretch()
         self.main_layout.addLayout(buttons_layout)
-        self.main_layout.addSpacing(200) 
+        self.main_layout.addSpacing(200)
+        buttons_layout.insertSpacing(1, 30)
+        buttons_layout.insertSpacing(3, 30)
+
+        
+    
 
 
     # =========================================================
