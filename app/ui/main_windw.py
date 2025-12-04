@@ -6,6 +6,9 @@ from qfluentwidgets import PrimaryPushButton
 
 from app.ui.widgets.blueprint_viewer import BlueprintViewer
 from app.ui.scan_page import ScanPage
+from PySide6.QtGui import QPainter, QColor, QPen, QBrush, QLinearGradient
+from PySide6.QtCore import QRectF, QPointF, Qt
+from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QLabel, QWidget
 
 
 class MainWindow(QMainWindow):
@@ -161,7 +164,95 @@ PrimaryPushButton:pressed {
         buttons_layout.insertSpacing(1, 30)
         buttons_layout.insertSpacing(3, 30)
 
-        
+        class SciFiFooter(QWidget):
+            def __init__(self, parent=None):
+                super().__init__(parent)
+                self.setFixedHeight(140)
+                self.setObjectName("SciFiFooter")
+
+                root = QHBoxLayout(self)
+                root.setContentsMargins(24, 18, 24, 18)
+                root.setSpacing(18)
+
+                left_box = QWidget(self)
+                left_layout = QVBoxLayout(left_box)
+                left_layout.setContentsMargins(0, 0, 0, 0)
+                left_layout.setSpacing(6)
+
+                title = QLabel("wfss")
+                title.setStyleSheet("font-size: 18px; font-weight: 700; color: #bcd7ff; letter-spacing: 1px;")
+                subtitle = QLabel("WiFi Strength Scanner")
+                subtitle = QLabel("saqlain • farhan • tamim • govt")
+                subtitle.setStyleSheet("color: #8fb4ff; font-size: 12px;")
+
+                left_layout.addWidget(title)
+                left_layout.addWidget(subtitle)
+
+                right_chip = QLabel("wfss v1.0.0", self)
+                right_chip.setStyleSheet("""
+                    padding: 6px 12px;
+                    color: #e7f1ff;
+                    background-color: rgba(30, 50, 80, 0.35);
+                    border: 1px solid rgba(0, 155, 255, 0.55);
+                    border-radius: 12px;
+                """)
+
+                root.addWidget(left_box)
+                root.addStretch()
+                root.addWidget(right_chip)
+
+                self.setStyleSheet("""
+                    #SciFiFooter {
+                        border-top-left-radius: 22px;
+                        border-top-right-radius: 22px;
+                        border: 1px solid rgba(0, 120, 255, 0.35);
+                        background: transparent;
+                    }
+                """)
+
+            def paintEvent(self, event):
+                p = QPainter(self)
+                p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+                r = self.rect().adjusted(8, 6, -8, -8)
+
+                # Glassy background
+                grad = QLinearGradient(r.topLeft(), r.bottomRight())
+                grad.setColorAt(0.0, QColor(10, 18, 30, 190))
+                grad.setColorAt(0.5, QColor(14, 24, 44, 180))
+                grad.setColorAt(1.0, QColor(18, 28, 54, 200))
+                p.setBrush(QBrush(grad))
+                p.setPen(QPen(QColor(0, 120, 255, 90), 1.2))
+                p.drawRoundedRect(r, 20, 20)
+
+                # Neon top highlight
+                p.setPen(QPen(QColor(0, 160, 255, 180), 2))
+                p.drawLine(r.left() + 14, r.top() + 12, r.right() - 14, r.top() + 12)
+
+                # Sci‑fi pattern: diagonal circuits and grid
+                grid_pen = QPen(QColor(0, 190, 255, 70), 1)
+                p.setPen(grid_pen)
+                step = 44
+                for x in range(int(r.left()) + 24, int(r.right()), step):
+                    p.drawLine(x, r.top() + 26, x + 30, r.bottom() - 26)
+                for y in range(int(r.top()) + 26, int(r.bottom()), step):
+                    p.drawLine(r.left() + 24, y, r.right() - 24, y - 18)
+
+                # Nodes
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QColor(120, 210, 255, 170))
+                for i in range(7):
+                    px = r.left() + 60 + i * step
+                    py = r.top() + 30 + (i % 3) * 20
+                    p.drawEllipse(QPointF(px, py), 3.2, 3.2)
+
+                # Soft corner glow
+                p.setBrush(QColor(0, 140, 255, 50))
+                p.drawEllipse(QRectF(r.right() - 130, r.center().y() - 45, 110, 90))
+
+        self.main_layout.addStretch()
+        self.footer = SciFiFooter(self)
+        self.main_layout.addWidget(self.footer)
     
 
 
