@@ -31,11 +31,15 @@ class MainWindow(QMainWindow):
         buttons_layout.addStretch()
 
         load_button = PrimaryPushButton("Scan Blueprint")
+        load_button.setFixedSize(150, 100)
         load_button.clicked.connect(self.open_scan_page)
         buttons_layout.addWidget(load_button)
 
+        
+
         buttons_layout.addStretch()
         self.main_layout.addLayout(buttons_layout)
+        self.main_layout.addSpacing(200)  # Fixed space in pixels
 
     def open_scan_page(self):
         # Replace the central content with ScanPage
