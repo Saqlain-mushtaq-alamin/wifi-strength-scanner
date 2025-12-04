@@ -29,13 +29,21 @@ class MainWindow(QMainWindow):
         # Buttons Layout (centered)
         buttons_layout = QHBoxLayout()
         buttons_layout.addStretch()
-
+        
+        # Scan Blueprint Button
         load_button = PrimaryPushButton("Scan Blueprint")
         load_button.setFixedSize(150, 100)
         load_button.clicked.connect(self.open_scan_page)
         buttons_layout.addWidget(load_button)
 
+        #heatmap list buttion
+        heatmap_button = PrimaryPushButton("Heatmap List")
+        heatmap_button.setFixedSize(150, 100)
+        #heatmap_button.clicked.connect(self.open_heatmap_list)
+        buttons_layout.addWidget(heatmap_button)
         
+
+
 
         buttons_layout.addStretch()
         self.main_layout.addLayout(buttons_layout)
