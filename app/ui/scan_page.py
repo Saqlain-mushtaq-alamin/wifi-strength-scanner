@@ -430,6 +430,9 @@ class ScanPage(QWidget):
 
         content_row.addLayout(middle_col, 1)
 
+
+
+       
         # Right: buttons column
         right_col = QVBoxLayout()
         right_col.setContentsMargins(0, 0, 0, 0)
