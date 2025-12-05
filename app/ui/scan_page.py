@@ -7,6 +7,10 @@ from qfluentwidgets import PrimaryPushButton, InfoBar, InfoBarPosition
 
 from app.ui.widgets.blueprint_viewer import BlueprintViewer
 from PySide6.QtWidgets import QApplication, QStackedWidget
+from PySide6.QtWidgets import QLabel, QTextEdit
+from PySide6.QtWidgets import QGraphicsDropShadowEffect, QGraphicsOpacityEffect
+from PySide6.QtCore import QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import QTimer
 
 
 class ScanPage(QWidget):
@@ -18,6 +22,10 @@ class ScanPage(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(16, 16, 16, 16)
         main_layout.setSpacing(12)
+
+        #====================================================
+        # Header section        
+        #====================================================
 
         # Header container with a narrow height
         header = QWidget(self)
@@ -33,36 +41,49 @@ class ScanPage(QWidget):
 
         def _go_back():
             try:
-                # If this page is inside a QStackedWidget, switch to the first page
-                parent = self.parent()
-                while parent is not None:
-                    if isinstance(parent, QStackedWidget):
-                        parent.setCurrentIndex(0)
-                        return
-                    parent = parent.parent()
-                # Fallback: open main window
+                # Resolve MainWindow class (prefer main_windw.py, fallback to main_window.py)
                 try:
                     from importlib import import_module
-                    try:
-                        MainWindow = getattr(import_module("app.ui.main_windw"), "MainWindow")  # as requested
-                    except Exception:
+
+
+
+                    MainWindow = None
+                    for mod in ("app.ui.main_windw", "app.ui.main_window"):
                         try:
-                            MainWindow = getattr(import_module("app.ui.main_window"), "MainWindow")  # fallback name
+                            MainWindow = getattr(import_module(mod), "MainWindow")
+                            break
                         except Exception:
-                            MainWindow = None
+                            continue
                 except Exception:
                     MainWindow = None
-                if MainWindow is not None:
-                    app = QApplication.instance()
-                    mw = None
-                    if isinstance(app, QApplication):
-                        mw = next((w for w in app.topLevelWidgets() if isinstance(w, MainWindow)), None)
+
+                top = self.window()
+
+                # If we're already inside the main window, just go to the first page of the nearest QStackedWidget
+                if MainWindow is not None and isinstance(top, MainWindow):
+                    parent = self.parentWidget()
+                    while parent is not None and not isinstance(parent, QStackedWidget):
+                        parent = parent.parentWidget()
+                    if isinstance(parent, QStackedWidget):
+                        parent.setCurrentIndex(0)
+                    return
+
+                # Otherwise, show or create the main window and close this window
+                app = QApplication.instance()
+                mw = None
+                if isinstance(app, QApplication) and MainWindow is not None:
+                    mw = next((w for w in app.topLevelWidgets() if isinstance(w, MainWindow)), None)
                     if mw is None:
                         mw = MainWindow()
-                        mw.show()
-                    win = self.window()
-                    if win is not mw and hasattr(win, "close"):
-                        win.close()
+                if mw is not None:
+                    mw.show()
+                    try:
+                        mw.raise_()
+                        mw.activateWindow()
+                    except Exception:
+                        pass
+                if top is not mw and hasattr(top, "close"):
+                    top.close()
             except Exception as e:
                 print(f"Back navigation failed: {e}")
 
@@ -73,33 +94,143 @@ class ScanPage(QWidget):
         # Add header to the top (non-expanding)
         main_layout.addWidget(header, 0)
 
+        #====================================================
+        # Image viewer section
+        #====================================================
+
         # Image viewer at the top (expanding)
         self.viewer = BlueprintViewer(self)
         # Receive clicks (gridX, gridY, imgX, imgY)
         self.viewer.pointClicked.connect(self._on_point_clicked)
         main_layout.addWidget(self.viewer, 1)
 
-        # Bottom control panel container
+        #====================================================
+        # Control panel section 
+        #====================================================
+        # Bottom control panel container  
         control_panel = QWidget(self)
         control_panel.setObjectName("controlPanel")
         cp_layout = QVBoxLayout(control_panel)
+        # Slightly reduce padding and spacing to lower overall height
         cp_layout.setContentsMargins(12, 12, 12, 12)
         cp_layout.setSpacing(8)
+        # Limit the height a little
+        control_panel.setMaximumHeight(200)
 
-        # Top row inside control panel: upload button aligned to the right
-        row = QHBoxLayout()
-        row.setSpacing(8)
-        row.addStretch(1)
+        # Simple styling with hover effect on border/background
+        control_panel.setStyleSheet("""
+        #controlPanel {
+            background: rgba(20, 24, 28, 160);
+            border: 1px solid rgba(120, 200, 255, 60);
+            border-radius: 12px;
+        }
+        #controlPanel:hover {
+            background: rgba(24, 28, 34, 175);
+            border: 1px solid rgba(120, 200, 255, 180);
+        }
+        QLabel {
+            color: #d7eaff;
+        }
+        QTextEdit {
+            background: rgba(30, 36, 42, 170);
+            border: 1px solid rgba(120, 200, 255, 40);
+            border-radius: 8px;
+            color: #cfe7ff;
+        }
+        """)
+
+        # Content row
+        content_row = QHBoxLayout()
+        content_row.setContentsMargins(0, 0, 0, 0)
+        content_row.setSpacing(10)
+
+        # Left: Image preview
+        self.preview_label = QLabel(control_panel)
+        self.preview_label.setMinimumSize(200, 150)
+        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_label.setText("Image preview")
+        self.preview_label.setStyleSheet("""
+        QLabel {
+            border-radius: 8px;
+            background: rgba(60, 80, 100, 80);
+            border: 1px solid rgba(120, 200, 255, 60);
+        }
+        """)
+        content_row.addWidget(self.preview_label, 0, Qt.AlignmentFlag.AlignLeft)
+
+        # Middle: colorbar + status text (no animation)
+        middle_col = QVBoxLayout()
+        middle_col.setContentsMargins(0, 0, 0, 0)
+        middle_col.setSpacing(6)
+
+        self.colorbar_label = QLabel(control_panel)
+        self.colorbar_label.setMinimumSize(200, 30)
+        self.colorbar_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.colorbar_label.setText("Signal strength scale")
+        self.colorbar_label.setStyleSheet("""
+        QLabel {
+            border-radius: 6px;
+            border: 1px solid rgba(120, 200, 255, 120);
+            background: qlineargradient(x1:0, y1:0.5, x2:1, y2:0.5,
+            stop:0 #001122,
+            stop:0.2 #21d4fd,
+            stop:0.5 #b721ff,
+            stop:0.8 #21d4fd,
+            stop:1 #001122);
+        }
+        """)
+        middle_col.addWidget(self.colorbar_label, 0, Qt.AlignmentFlag.AlignTop)
+
+        self.status_text = QTextEdit(control_panel)
+        self.status_text.setReadOnly(True)
+        self.status_text.setPlaceholderText("Click on the blueprint to see point details here.")
+        self.status_text.setMinimumSize(300, 100)
+        middle_col.addWidget(self.status_text, 0, Qt.AlignmentFlag.AlignTop)
+
+        content_row.addLayout(middle_col, 1)
+
+        # Right: buttons column
+        right_col = QVBoxLayout()
+        right_col.setContentsMargins(0, 0, 0, 0)
+        right_col.setSpacing(10)
 
         self.upload_btn = PrimaryPushButton("Upload Image", control_panel)
-        self.upload_btn.clicked.connect(self._on_upload_clicked)
-        row.addWidget(self.upload_btn, 0, Qt.AlignmentFlag.AlignRight)
+        right_col.addWidget(self.upload_btn, 0, Qt.AlignmentFlag.AlignTop)
 
-        cp_layout.addLayout(row)
+        self.generate_btn = PrimaryPushButton("Generate Heatmap", control_panel)
+        right_col.addWidget(self.generate_btn, 0, Qt.AlignmentFlag.AlignTop)
+
+        # Wire buttons
+        self.upload_btn.clicked.connect(self._on_upload_clicked)
+        self.generate_btn.clicked.connect(self._on_upload_clicked)  # TODO: replace with real handler
+
+        right_col.addStretch(1)
+        content_row.addStretch(1)
+        content_row.addLayout(right_col, 0)
+
+        # Update status_text whenever a point is clicked
+        def _update_status(gx: int, gy: int, ix: float, iy: float):
+            self.status_text.setPlainText(
+            f"Last point:\n"
+            f"  Grid -> ({gx}, {gy})\n"
+            f"  Image px -> ({ix:.1f}, {iy:.1f})"
+            )
+        self.viewer.pointClicked.connect(_update_status)
+
+        cp_layout.addLayout(content_row)
         cp_layout.addStretch(1)
 
-        # Add control panel at the bottom (non-expanding)
+        # Add control panel at the bottom
         main_layout.addWidget(control_panel, 0)
+
+
+    #====================================================
+    #button action sections 
+    #====================================================
+
+
+
+    #button to upload image and load into viewer
 
     def _on_upload_clicked(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -122,6 +253,9 @@ class ScanPage(QWidget):
             return
 
         self.viewer.set_pixmap(pix)
+
+    # Callback when a point is clicked in the viewer
+
 
     def _on_point_clicked(self, gx: int, gy: int, ix: float, iy: float):
         # Show a small toast with the coordinates
