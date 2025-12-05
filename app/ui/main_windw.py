@@ -24,6 +24,9 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_container)
 
         #  apply background style
+ 
+
+
         # Create a widget container for everything except the title
         self.main_layout = QVBoxLayout(self.central_container)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
@@ -110,41 +113,79 @@ class MainWindow(QMainWindow):
         # BUTTONS SECTION
         # =========================================================
 
+        # Container with sci‑fi glassy background and border
+        # Wrapper to center the fixed-size container horizontally
+        buttons_container = QWidget()  # wrapper
+        wrapper_layout = QHBoxLayout(buttons_container)
+        wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        wrapper_layout.setSpacing(0)
+        wrapper_layout.addStretch()
+
+        # Actual styled panel
+        panel = QWidget()
+        panel.setObjectName("ButtonsContainer")
+        panel.setFixedSize(600, 200)   # width, height
+
+        buttons_container_layout = QHBoxLayout(panel)
+        buttons_container_layout.setContentsMargins(20, 20, 20, 20)
+        buttons_container_layout.setSpacing(0)
+
+        wrapper_layout.addWidget(panel, 0, Qt.AlignmentFlag.AlignCenter)
+        wrapper_layout.addStretch()
+
+
+        # Style the container (Qt "CSS")
+        buttons_container.setStyleSheet("""
+    #ButtonsContainer {
+        border: 1px solid rgba(0, 150, 255, 120);
+        border-top-color: rgba(0, 180, 255, 160);
+        border-bottom-color: rgba(0, 110, 220, 100);
+        border-radius: 26px;
+    }
+
+    #ButtonsContainer::hover {
+        border-color: rgba(0, 190, 255, 180);
+    }
+
+    /* subtle inner highlight using padding + gradient child hack */
+    #ButtonsContainer > * {
+        background: transparent;
+    }
+
+    /* Neon diagonal accent lines using a gradient overlay-like effect */
+    #ButtonsContainer {
+        /* fake glow edges */
+        outline: none;
+    }
+    """)
+
         buttons_layout = QHBoxLayout()
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        buttons_layout.setSpacing(30)
         buttons_layout.addStretch()
 
         button_style = """
-PrimaryPushButton {
-    background: rgba(20, 25, 30, 0.35);
-    color: #dceaff;
-    font-size: 18px;
-    font-weight: 600;
-    padding: 12px;
-    border-radius: 18px;
-    border: 1px solid rgba(0, 98, 255, 0.4);
-    backdrop-filter: blur(25px);
-    box-shadow: 
-        0 0 12px rgba(0, 115, 255, 0.35),
-        inset 0 -2px 6px rgba(0, 0, 0, 0.4),
-        inset 0 2px 6px rgba(255, 255, 255, 0.06);
-}
+    PrimaryPushButton {
+        background: rgba(20, 25, 30, 0.35);
+        color: #dceaff;
+        font-size: 18px;
+        font-weight: 600;
+        padding: 12px;
+        border-radius: 18px;
+        border: 1px solid rgba(0, 98, 255, 0.55);
+    }
 
-PrimaryPushButton:hover {
-    background: rgba(30, 40, 60, 0.55);
-    border: 1px solid rgba(0, 140, 255, 0.9);
-    color: #e8f3ff;
-    box-shadow: 
-        0 0 20px rgba(0, 132, 255, 0.8),
-        0 0 40px rgba(0, 132, 255, 0.6);
-    transform: translateY(-2px);
-}
+    PrimaryPushButton:hover {
+        background: rgba(30, 40, 60, 0.55);
+        border: 1px solid rgba(0, 160, 255, 0.95);
+        color: #e8f3ff;
+    }
 
-PrimaryPushButton:pressed {
-    background: rgba(15, 20, 25, 0.8);
-    box-shadow: 0 0 10px rgba(0, 100, 255, 0.4);
-    transform: scale(0.96);
-}
-"""
+    PrimaryPushButton:pressed {
+        background: rgba(15, 20, 25, 0.85);
+        border: 1px solid rgba(0, 140, 255, 0.9);
+    }
+    """
 
         load_button = PrimaryPushButton("Scan Blueprint")
         load_button.setFixedSize(150, 100)
@@ -158,12 +199,26 @@ PrimaryPushButton:pressed {
         heatmap_button.clicked.connect(self.open_heatmap_list)
         buttons_layout.addWidget(heatmap_button)
 
-        buttons_layout.addStretch()
-        self.main_layout.addLayout(buttons_layout)
-        self.main_layout.addSpacing(200)
-        buttons_layout.insertSpacing(1, 30)
-        buttons_layout.insertSpacing(3, 30)
+        speedtest_button = PrimaryPushButton("Speed Test")
+        speedtest_button.setFixedSize(150, 100)
+        speedtest_button.setStyleSheet(button_style)
+        speedtest_button.clicked.connect(self.open_speed_test)
+        buttons_layout.addWidget(speedtest_button)
 
+        buttons_layout.addStretch()
+
+        # Add the buttons layout into the styled container
+        buttons_container_layout.addLayout(buttons_layout)
+
+        # Place the container in the main layout
+        self.main_layout.addWidget(buttons_container)
+        self.main_layout.addSpacing(200)
+        # extra spacing between buttons handled by layout spacing above
+
+
+        # =========================================================
+        # FOOTER SECTION
+        # =========================================================
         class SciFiFooter(QWidget):
             def __init__(self, parent=None):
                 super().__init__(parent)
@@ -188,7 +243,7 @@ PrimaryPushButton:pressed {
                 left_layout.addWidget(title)
                 left_layout.addWidget(subtitle)
 
-                right_chip = QLabel("wfss v1.0.0", self)
+                right_chip = QLabel("Gang Bangers", self)
                 right_chip.setStyleSheet("""
                     padding: 6px 12px;
                     color: #e7f1ff;
@@ -265,3 +320,14 @@ PrimaryPushButton:pressed {
 
     def open_heatmap_list(self):
         pass  # Add later
+
+    def open_speed_test(self):
+        # Placeholder page until Speed Test implementation exists
+        placeholder = QWidget(self)
+        layout = QVBoxLayout(placeholder)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
+        label = QLabel("Speed Test page is under construction.", placeholder)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(label)
+        self.setCentralWidget(placeholder)
