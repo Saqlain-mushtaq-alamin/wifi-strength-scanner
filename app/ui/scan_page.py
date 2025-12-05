@@ -155,7 +155,7 @@ class ScanPage(QWidget):
             border-right: 1px solid rgba(120, 200, 255, 160);
              
             border-top-left-radius: 20px;
-            border-top-right-radius: 20px;
+            border-top-right-radius: 20px ;
             background: transparent;
         }
         """)
