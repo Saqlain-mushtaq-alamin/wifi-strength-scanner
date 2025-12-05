@@ -1,7 +1,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QWidget, QFileDialog, QVBoxLayout, QHBoxLayout
+    QWidget, QFileDialog, QVBoxLayout, QHBoxLayout, QSlider
 )
 from qfluentwidgets import PrimaryPushButton, InfoBar, InfoBarPosition
 
@@ -89,12 +89,6 @@ class ScanPage(QWidget):
                 # Resolve MainWindow class (prefer main_windw.py, fallback to main_window.py)
                 try:
                     from importlib import import_module
-
-
-
-
-
-
                     MainWindow = None
                     for mod in ("app.ui.main_windw", "app.ui.main_window"):
                         try:
@@ -206,44 +200,158 @@ class ScanPage(QWidget):
         """)
 
         # Content row
+        # Row for control panel content (keep compact to avoid overflow)
         content_row = QHBoxLayout()
         content_row.setContentsMargins(0, 0, 0, 0)
-        content_row.setSpacing(10)
+        content_row.setSpacing(8)
+        content_row.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Left: Image preview
-        self.preview_label = QLabel(control_panel)
-        self.preview_label.setMinimumSize(200, 150)
-        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview_label.setText("Image preview")
-        self.preview_label.setStyleSheet("""
-        QLabel {
-            border-radius: 8px;
-            background: rgba(60, 80, 100, 80);
-            border: 1px solid rgba(120, 200, 255, 60);
-        }
+        middle_col = QVBoxLayout()
+        middle_col.setContentsMargins(0, 0, 0, 0)
+        middle_col.setSpacing(6)
+
+
+
+        # Left: vertical grid scale + vertical slider (in a fixed-width panel to avoid overlap)
+        left_panel = QWidget(control_panel)
+        left_panel.setObjectName("leftPanel")
+        left_panel.setFixedWidth(100)  # wider to fit numeric labels
+        left_panel_layout = QVBoxLayout(left_panel)
+        left_panel_layout.setContentsMargins(0, 0, 0, 0)
+        left_panel_layout.setSpacing(6)
+
+        
+        
+
+        # A compact container holding: [labels | slider] and a bottom caption "Grid"
+        self.slider = QWidget(left_panel)  # container widget (keeps external addWidget(self.slider) intact)
+        slider_panel_layout = QVBoxLayout(self.slider)
+        slider_panel_layout.setContentsMargins(0, 0, 0, 0)
+        slider_panel_layout.setSpacing(4)
+
+        # Row: labels (left) + real slider (right)
+        slider_row = QHBoxLayout()
+        slider_row.setContentsMargins(0, 0, 0, 0)
+        slider_row.setSpacing(6)
+
+        # Numeric labels on the left (0..200 step 25), arranged top->bottom to align with the slider
+        labels_col = QVBoxLayout()
+        labels_col.setContentsMargins(0, 0, 0, 0)
+        labels_col.setSpacing(0)
+
+        # Build marks from 200 (top) down to 0 (bottom) to match vertical slider
+        marks = list(range(200, -1, -25))
+        for i, val in enumerate(marks):
+            lbl = QLabel(str(val), self.slider)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            lbl.setStyleSheet("color: #cfe7ff; font-size: 10px;")
+            labels_col.addWidget(lbl, 0)
+            if i != len(marks) - 1:
+                labels_col.addStretch(1)  # distribute labels evenly
+
+        slider_row.addLayout(labels_col, 0)
+
+        # The actual slider controlling grid size
+        self.grid_slider = QSlider(Qt.Orientation.Vertical, self.slider)
+        self.grid_slider.setMinimum(0)
+        self.grid_slider.setMaximum(200)           # 0..200 as requested
+        self.grid_slider.setSingleStep(5)
+        self.grid_slider.setPageStep(25)
+        # Try to initialize from viewer's current grid size if available
+        try:
+            current_grid = int(getattr(self.viewer, "_grid_px", 100))
+        except Exception:
+            current_grid = 100
+        self.grid_slider.setValue(max(self.grid_slider.minimum(), min(self.grid_slider.maximum(), current_grid)))
+        self.grid_slider.setFixedSize(26, 150)     # a little taller
+        self.grid_slider.setTickPosition(QSlider.TickPosition.TicksLeft)
+        self.grid_slider.setTickInterval(25)
+        self.grid_slider.setStyleSheet("""
+            QSlider::groove:vertical {
+            border: 1px solid #bbb;
+            background: #2a2f35;
+            width: 8px;
+            border-radius: 4px;
+            }
+            QSlider::sub-page:vertical {
+            background: #4b5563;
+            border: 1px solid #3b82f6;
+            width: 8px;
+            border-radius: 4px;
+            }
+            QSlider::add-page:vertical {
+            background: #2a2f35;
+            border: 1px solid #777;
+            width: 8px;
+            border-radius: 4px;
+            }
+            QSlider::handle:vertical {
+            background: #4da6ff;
+            border: 1px solid #2980b9;
+            width: 18px;
+            height: 18px;
+            margin: 0;
+            border-radius: 9px;
+            }
         """)
-        content_row.addWidget(self.preview_label, 0, Qt.AlignmentFlag.AlignLeft)
+        slider_row.addWidget(self.grid_slider, 0, Qt.AlignmentFlag.AlignTop)
 
-        # Middle: colorbar + status text (no animation)
+        slider_panel_layout.addLayout(slider_row, 0)
+
+        # Bottom caption "Grid"
+        grid_caption = QLabel("Grid/px", self.slider)
+        grid_caption.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+        grid_caption.setStyleSheet("color: #d7eaff; font-size: 11px;")
+        slider_panel_layout.addWidget(grid_caption, 0, Qt.AlignmentFlag.AlignTop)
+
+        # When the slider changes, update BlueprintViewer grid size
+        def _apply_grid_size(val: int):
+            v = int(val)
+            try:
+                # Prefer public API set_grid_size; fallback to alias set_grid_px; else mutate attr
+                setter = getattr(self.viewer, "set_grid_size", None)
+                if not callable(setter):
+                    setter = getattr(self.viewer, "set_grid_px", None)
+                if callable(setter):
+                    setter(v)
+                else:
+                    setattr(self.viewer, "_grid_px", v)
+                    upd = getattr(self.viewer, "update", None)
+                    if callable(upd):
+                        upd()
+            except Exception:
+                pass
+
+        self.grid_slider.valueChanged.connect(_apply_grid_size)
+        left_panel_layout.addWidget(self.slider, 0, Qt.AlignmentFlag.AlignTop)
+        left_panel_layout.addStretch(1)
+
+        # Add the left fixed panel to the content row
+        content_row.addWidget(left_panel, 0, Qt.AlignmentFlag.AlignTop)
+
+        # Middle: colorbar + status text (kept for layout compatibility, hidden)
         middle_col = QVBoxLayout()
         middle_col.setContentsMargins(0, 0, 0, 0)
         middle_col.setSpacing(6)
 
         self.colorbar_label = QLabel(control_panel)
+        self.colorbar_label.setVisible(False)  # hidden, vertical bar shown on the left
+        
+
         self.colorbar_label.setMinimumSize(200, 30)
         self.colorbar_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.colorbar_label.setText("Signal strength scale")
+ 
         self.colorbar_label.setStyleSheet("""
-        QLabel {
+            QLabel {
             border-radius: 6px;
             border: 1px solid rgba(120, 200, 255, 120);
             background: qlineargradient(x1:0, y1:0.5, x2:1, y2:0.5,
-            stop:0 #001122,
-            stop:0.2 #21d4fd,
-            stop:0.5 #b721ff,
-            stop:0.8 #21d4fd,
-            stop:1 #001122);
-        }
+                stop:0 #001122,
+                stop:0.2 #21d4fd,
+                stop:0.5 #b721ff,
+                stop:0.8 #21d4fd,
+                stop:1 #001122);
+            }
         """)
         middle_col.addWidget(self.colorbar_label, 0, Qt.AlignmentFlag.AlignTop)
 

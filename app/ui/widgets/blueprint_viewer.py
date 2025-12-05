@@ -17,7 +17,7 @@ class BlueprintViewer(QWidget):
 
         # Grid resolution (pixels per cell) — tune this to your needs:
         # e.g., 50 or 100
-        self._grid_px: int = 100  # <<< adjust grid size here
+        #self._grid_px: int = 100  # <<< adjust grid size here
 
         self.setMouseTracking(False)
         self.setMinimumSize(100, 100)
@@ -32,6 +32,11 @@ class BlueprintViewer(QWidget):
         if px > 0:
             self._grid_px = px
             self.update()
+            print(f"BlueprintViewer: grid size set to {px} px")
+
+    # Backward-compatible alias used by some callers
+    def set_grid_px(self, px: int):
+        self.set_grid_size(px)
 
     def clear_markers(self):
         self._markers.clear()
