@@ -220,7 +220,74 @@ class ScanPage(QWidget):
         left_panel_layout.setContentsMargins(0, 0, 0, 0)
         left_panel_layout.setSpacing(6)
 
-        
+        # Move the vertical heatmap color scale to the left side of the horizontal slider row
+        def _reposition_color_scale():
+            try:
+                color_scale_container = self.findChild(QWidget, "colorScaleContainer")
+                if not color_scale_container:
+                    return
+                # Get the slider row layout (first item of self.slider's QVBoxLayout)
+                sp_layout = getattr(self.slider, "layout", lambda: None)()
+                if not sp_layout or sp_layout.count() == 0:
+                    return
+                slider_row_item = sp_layout.itemAt(0)
+                slider_row = slider_row_item.layout() if slider_row_item else None
+                if not slider_row:
+                    return
+
+                # Remove color_scale_container from its current parent layout
+                parent_layout = color_scale_container.parentWidget().layout() if color_scale_container.parentWidget() else None
+                if parent_layout:
+                    for i in range(parent_layout.count()):
+                        item = parent_layout.itemAt(i)
+                        if item and item.widget() is color_scale_container:
+                            parent_layout.takeAt(i)
+                            break
+
+                color_scale_container.setParent(self.slider)
+                slider_row.insertWidget(0, color_scale_container, 0, Qt.AlignmentFlag.AlignTop)
+            except Exception:
+                pass
+
+        QTimer.singleShot(0, _reposition_color_scale)
+        color_scale_container = QWidget(left_panel)
+        color_scale_container.setObjectName("colorScaleContainer")
+        color_scale_layout = QVBoxLayout(color_scale_container)
+        color_scale_layout.setContentsMargins(0, 0, 0, 0)
+        color_scale_layout.setSpacing(4)
+
+        high_lbl = QLabel("High", color_scale_container)
+        high_lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+        high_lbl.setStyleSheet("color: #d7eaff; font-size: 10px;")
+        color_scale_layout.addWidget(high_lbl, 0)
+
+        colorbar = QLabel(color_scale_container)
+        colorbar.setFixedSize(20, 150)
+        colorbar.setStyleSheet("""
+            QLabel#colorbar {
+            border: 1px solid rgba(120, 200, 255, 120);
+            border-radius: 6px;
+            background: qlineargradient(x1:0.5, y1:0, x2:0.5, y2:1,
+                stop:0 #ff0000,       /* high (hot) */
+                stop:0.25 #ff7f00,
+                stop:0.5 #ffff00,
+                stop:0.75 #00ff00,
+                stop:1 #0000ff        /* low (cold) */
+            );
+            }
+        """)
+        colorbar.setObjectName("colorbar")
+        color_scale_layout.addWidget(colorbar, 0, Qt.AlignmentFlag.AlignTop)
+
+        low_lbl = QLabel("Low", color_scale_container)
+        low_lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+        low_lbl.setStyleSheet("color: #d7eaff; font-size: 10px;")
+        color_scale_layout.addWidget(low_lbl, 0)
+
+        # add to the left panel (placed near the slider area)
+        left_panel_layout.addWidget(color_scale_container, 0, Qt.AlignmentFlag.AlignTop)
+
+
         
 
         # A compact container holding: [labels | slider] and a bottom caption "Grid"
