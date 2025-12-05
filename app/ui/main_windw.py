@@ -107,7 +107,7 @@ class MainWindow(QMainWindow):
 
         self.blueprint_viewer = BlueprintViewer()
         self.main_layout.addWidget(self.blueprint_viewer)
-        self.main_layout.addSpacing(40)
+        self.main_layout.addSpacing(20)
 
         # =========================================================
         # BUTTONS SECTION
@@ -212,7 +212,7 @@ class MainWindow(QMainWindow):
 
         # Place the container in the main layout
         self.main_layout.addWidget(buttons_container)
-        self.main_layout.addSpacing(200)
+        self.main_layout.addSpacing(150)
         # extra spacing between buttons handled by layout spacing above
 
 
