@@ -346,7 +346,7 @@ class ScanPage(QWidget):
             self,
             "Select an image",
             "",
-            "Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp)"
+            "Images (*.svg *.png *.jpg *.jpeg *.bmp *.gif *.webp)"
         )
         if not file_path:
             return
