@@ -40,9 +40,49 @@ class ScanPage(QWidget):
         header_layout.setContentsMargins(8, 4, 8, 4)
         header_layout.setSpacing(6)
 
+        # Glassy look with top/bottom borders
+        header.setStyleSheet("""
+        #headerContainer {
+            background: rgba(30, 36, 42, 140);  /* glassy translucent */
+            border-top: 1px solid rgba(120, 200, 255, 160);
+            border-bottom: 1px solid rgba(120, 200, 255, 160);
+        }
+        #headerContainer:hover {
+            background: rgba(36, 42, 48, 170);
+            border-top: 1px solid rgba(120, 200, 255, 220);
+            border-bottom: 1px solid rgba(120, 200, 255, 220);
+        }
+        """)
+
+        # Subtle shadow for depth
+        shadow = QGraphicsDropShadowEffect(header)
+        shadow.setBlurRadius(16)
+        shadow.setOffset(0, 3)
+        shadow.setColor(QColor(80, 140, 200, 160))
+        header.setGraphicsEffect(shadow)
+
         # Back button on the left
         self.back_btn = PrimaryPushButton("Back", header)
+        self.back_btn.setObjectName("backBtn")
         self.back_btn.setFixedHeight(28)
+        self.back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.back_btn.setStyleSheet("""
+        #backBtn {
+            background: transparent;
+            border: none;
+            border-right: 1px solid rgba(120, 200, 255, 180);
+            color: #d7eaff;
+            padding: 0 10px;  /* added padding */
+        }
+        #backBtn:hover {
+            background: rgba(30, 36, 42, 120);  /* hover effect */
+            border-right: 1px solid rgba(120, 200, 255, 220);
+        }
+        #backBtn:pressed {
+            background: rgba(21, 212, 253, 80); /* pressed effect */
+            border-right: 1px solid rgba(120, 200, 255, 255);
+        }
+        """)
 
         def _go_back():
             try:
