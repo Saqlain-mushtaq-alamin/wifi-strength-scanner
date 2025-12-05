@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 from qfluentwidgets import PrimaryPushButton, InfoBar, InfoBarPosition
 
 from app.ui.widgets.blueprint_viewer import BlueprintViewer
+from PySide6.QtWidgets import QApplication, QStackedWidget
 
 
 class ScanPage(QWidget):
@@ -18,26 +19,87 @@ class ScanPage(QWidget):
         main_layout.setContentsMargins(16, 16, 16, 16)
         main_layout.setSpacing(12)
 
-        # Top bar with upload button
-        top_bar = QHBoxLayout()
-        top_bar.setSpacing(8)
+        # Header container with a narrow height
+        header = QWidget(self)
+        header.setObjectName("headerContainer")
+        header.setFixedHeight(36)  # very narrow
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(8, 4, 8, 4)
+        header_layout.setSpacing(6)
 
-        self.upload_btn = PrimaryPushButton("Upload Image", self)
-        self.upload_btn.clicked.connect(self._on_upload_clicked)
+        # Back button on the left
+        self.back_btn = PrimaryPushButton("Back", header)
+        self.back_btn.setFixedHeight(28)
 
-        top_bar.addWidget(self.upload_btn, 0, Qt.AlignmentFlag.AlignLeft)
-        top_bar.addStretch(1)
+        def _go_back():
+            try:
+                # If this page is inside a QStackedWidget, switch to the first page
+                parent = self.parent()
+                while parent is not None:
+                    if isinstance(parent, QStackedWidget):
+                        parent.setCurrentIndex(0)
+                        return
+                    parent = parent.parent()
+                # Fallback: open main window
+                try:
+                    from importlib import import_module
+                    try:
+                        MainWindow = getattr(import_module("app.ui.main_windw"), "MainWindow")  # as requested
+                    except Exception:
+                        try:
+                            MainWindow = getattr(import_module("app.ui.main_window"), "MainWindow")  # fallback name
+                        except Exception:
+                            MainWindow = None
+                except Exception:
+                    MainWindow = None
+                if MainWindow is not None:
+                    app = QApplication.instance()
+                    mw = None
+                    if isinstance(app, QApplication):
+                        mw = next((w for w in app.topLevelWidgets() if isinstance(w, MainWindow)), None)
+                    if mw is None:
+                        mw = MainWindow()
+                        mw.show()
+                    win = self.window()
+                    if win is not mw and hasattr(win, "close"):
+                        win.close()
+            except Exception as e:
+                print(f"Back navigation failed: {e}")
 
-        # Image viewer with invisible virtual grid
+        self.back_btn.clicked.connect(_go_back)
+        header_layout.addWidget(self.back_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        header_layout.addStretch(1)
+
+        # Add header to the top (non-expanding)
+        main_layout.addWidget(header, 0)
+
+        # Image viewer at the top (expanding)
         self.viewer = BlueprintViewer(self)
-        # Optional: tune grid resolution here or via set_grid_size()
-        # self.viewer.set_grid_size(100)
-
         # Receive clicks (gridX, gridY, imgX, imgY)
         self.viewer.pointClicked.connect(self._on_point_clicked)
-
-        main_layout.addLayout(top_bar)
         main_layout.addWidget(self.viewer, 1)
+
+        # Bottom control panel container
+        control_panel = QWidget(self)
+        control_panel.setObjectName("controlPanel")
+        cp_layout = QVBoxLayout(control_panel)
+        cp_layout.setContentsMargins(12, 12, 12, 12)
+        cp_layout.setSpacing(8)
+
+        # Top row inside control panel: upload button aligned to the right
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addStretch(1)
+
+        self.upload_btn = PrimaryPushButton("Upload Image", control_panel)
+        self.upload_btn.clicked.connect(self._on_upload_clicked)
+        row.addWidget(self.upload_btn, 0, Qt.AlignmentFlag.AlignRight)
+
+        cp_layout.addLayout(row)
+        cp_layout.addStretch(1)
+
+        # Add control panel at the bottom (non-expanding)
+        main_layout.addWidget(control_panel, 0)
 
     def _on_upload_clicked(self):
         file_path, _ = QFileDialog.getOpenFileName(
