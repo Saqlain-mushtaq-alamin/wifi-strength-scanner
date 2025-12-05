@@ -11,6 +11,11 @@ from PySide6.QtWidgets import QLabel, QTextEdit
 from PySide6.QtWidgets import QGraphicsDropShadowEffect, QGraphicsOpacityEffect
 from PySide6.QtCore import QPropertyAnimation, QEasingCurve
 from PySide6.QtCore import QTimer
+from PySide6.QtGui import QIcon, QColor
+from PySide6.QtCore import QSize
+from pathlib import Path
+from PySide6.QtWidgets import QToolButton
+
 
 
 class ScanPage(QWidget):
@@ -44,6 +49,9 @@ class ScanPage(QWidget):
                 # Resolve MainWindow class (prefer main_windw.py, fallback to main_window.py)
                 try:
                     from importlib import import_module
+
+
+
 
 
 
@@ -194,11 +202,72 @@ class ScanPage(QWidget):
         right_col.setContentsMargins(0, 0, 0, 0)
         right_col.setSpacing(10)
 
-        self.upload_btn = PrimaryPushButton("Upload Image", control_panel)
+        # resolve icons from app/resources/icon relative to this file
+        def load_icon(filename: str) -> QIcon:
+            # resources/icon folder is sibling of ui folder
+            res_dir = Path(__file__).resolve().parent.parent / "resources" / "icon"
+            p = res_dir / filename
+            if p.exists():
+                pix = QPixmap(str(p))
+                if not pix.isNull():
+                    return QIcon(pix)
+            return QIcon()  # empty, no crash
+
+
+        # Upload button (icon above text, bigger icon, taller button)
+        self.upload_btn = QToolButton(control_panel)
+        self.upload_btn.setObjectName("uploadBtn")
+        self.upload_btn.setText(" Upload Blueprint ")
+        self.upload_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+        self.upload_btn.setIcon(load_icon("load.gif"))
+        self.upload_btn.setIconSize(QSize(40, 40))  # bigger icon
+        self.upload_btn.setFixedHeight(80)  # taller button
+        self.upload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         right_col.addWidget(self.upload_btn, 0, Qt.AlignmentFlag.AlignTop)
 
-        self.generate_btn = PrimaryPushButton("Generate Heatmap", control_panel)
+        # Generate button (icon above text, bigger icon, taller button)
+        self.generate_btn = QToolButton(control_panel)
+        self.generate_btn.setObjectName("generateBtn")
+        self.generate_btn.setText("Generate Heatmap")
+        self.generate_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+        self.generate_btn.setIcon(load_icon("blog.gif"))
+        self.generate_btn.setIconSize(QSize(40, 40))  # bigger icon
+        self.generate_btn.setFixedHeight(80)  # taller button
+        self.generate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         right_col.addWidget(self.generate_btn, 0, Qt.AlignmentFlag.AlignTop)
+
+        # subtle glow/shadow
+        for btn in (self.upload_btn, self.generate_btn):
+            eff = QGraphicsDropShadowEffect(btn)
+            eff.setBlurRadius(16)
+            eff.setOffset(0, 2)
+            eff.setColor(QColor(120, 200, 255, 160))
+            btn.setGraphicsEffect(eff)
+
+        # shiny hover styles
+        control_panel.setStyleSheet(control_panel.styleSheet() + """
+        #uploadBtn, #generateBtn {
+            border: 1px solid rgba(120, 200, 255, 120);
+            border-radius: 8px;
+            color: #d7eaff;
+            padding: 8px 14px; /* slightly more padding for taller buttons */
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            stop:0 rgba(30, 36, 42, 220),
+            stop:0.5 rgba(24, 30, 36, 220),
+            stop:1 rgba(20, 26, 32, 220)
+            );
+        }
+        #uploadBtn:hover, #generateBtn:hover {
+            border: 1px solid rgba(120, 200, 255, 220);
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+            stop:0 rgba(21, 212, 253, 180),
+            stop:1 rgba(183, 33, 255, 180)
+            );
+        }
+        #uploadBtn:pressed, #generateBtn:pressed {
+            background: rgba(21, 212, 253, 140);
+        }
+        """)
 
         # Wire buttons
         self.upload_btn.clicked.connect(self._on_upload_clicked)
