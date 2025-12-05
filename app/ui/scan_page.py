@@ -146,11 +146,26 @@ class ScanPage(QWidget):
         # Image viewer section
         #====================================================
 
-        # Image viewer at the top (expanding)
-        self.viewer = BlueprintViewer(self)
+        # Image viewer at the top (expanding) with left/right borders
+        viewer_container = QWidget(self)
+        viewer_container.setObjectName("viewerContainer")
+        viewer_container.setStyleSheet("""
+        #viewerContainer {
+            border-left: 1px solid rgba(120, 200, 255, 160);
+            border-right: 1px solid rgba(120, 200, 255, 160);
+            background: transparent;
+        }
+        """)
+        vc_layout = QVBoxLayout(viewer_container)
+        vc_layout.setContentsMargins(0, 0, 0, 0)
+        vc_layout.setSpacing(0)
+
+        self.viewer = BlueprintViewer(viewer_container)
         # Receive clicks (gridX, gridY, imgX, imgY)
         self.viewer.pointClicked.connect(self._on_point_clicked)
-        main_layout.addWidget(self.viewer, 1)
+        vc_layout.addWidget(self.viewer)
+
+        main_layout.addWidget(viewer_container, 1)
 
         #====================================================
         # Control panel section 
