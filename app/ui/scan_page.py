@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 from qfluentwidgets import PrimaryPushButton, InfoBar, InfoBarPosition
 
 from app.ui.widgets.blueprint_viewer import BlueprintViewer
+from app.core.scanner import WifiScanner
 from PySide6.QtWidgets import QApplication, QStackedWidget
 from PySide6.QtWidgets import QLabel, QTextEdit
 from PySide6.QtWidgets import QGraphicsDropShadowEffect, QGraphicsOpacityEffect
@@ -563,12 +564,52 @@ class ScanPage(QWidget):
 
 
     def _on_point_clicked(self, gx: int, gy: int, ix: float, iy: float):
-        # Show a small toast with the coordinates
+        # Fetch WiFi scan details and display along with coordinates
+        wifi_info = None
+        try:
+            wifi_info = WifiScanner.scan()
+            print(f"WiFi scan data: {wifi_info}")
+        except Exception as e:
+            wifi_info = {"error": str(e)}
+
+        # Build a concise message
+        if wifi_info and isinstance(wifi_info, dict):
+            ssid = wifi_info.get("ssid")
+            bssid = wifi_info.get("bssid")
+            signal = wifi_info.get("signal")
+            rssi = wifi_info.get("rssi")
+            channel = wifi_info.get("channel")
+            radio = wifi_info.get("radio")
+            band = wifi_info.get("band")
+
+            wifi_text = (
+                f"SSID: {ssid or 'N/A'} | BSSID: {bssid or 'N/A'} | "
+                f"Signal: {signal if signal is not None else 'N/A'}% "
+                f"(RSSI: {rssi if rssi is not None else 'N/A'}) | "
+                f"Channel: {channel or 'N/A'} | Radio: {radio or 'N/A'} | Band: {band or 'N/A'}"
+            )
+        else:
+            wifi_text = "WiFi info unavailable"
+
+        # Toast with coordinates + WiFi info
         InfoBar.success(
             title="Point added",
-            content=f"Grid: ({gx}, {gy}) | Image px: ({ix:.1f}, {iy:.1f})",
+            content=(
+                f"Grid: ({gx}, {gy}) | Image px: ({ix:.1f}, {iy:.1f})\n" + wifi_text
+            ),
             position=InfoBarPosition.TOP_RIGHT,
             parent=self
         )
-        # Also print to terminal if you want
-        print(f"Clicked grid=({gx},{gy}) image=({ix:.1f},{iy:.1f})")
+
+        # Update status panel for persistent view
+        self.status_text.setPlainText(
+            f"Last point:\n"
+            f"  Grid -> ({gx}, {gy})\n"
+            f"  Image px -> ({ix:.1f}, {iy:.1f})\n\n"
+            f"WiFi:\n  {wifi_text}"
+        )
+
+        # Also print to terminal for debugging
+        print(
+            f"Clicked grid=({gx},{gy}) image=({ix:.1f},{iy:.1f}); {wifi_text}"
+        )
