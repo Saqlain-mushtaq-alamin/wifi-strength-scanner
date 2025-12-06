@@ -18,6 +18,7 @@ class HeatmapList(QWidget):
 
         # Header
         header = QFrame()
+        header.setMinimumHeight(64)
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(12, 12, 12, 12)
         header_layout.setSpacing(8)
@@ -32,12 +33,14 @@ class HeatmapList(QWidget):
         header_layout.addWidget(subtitle)
         root.addWidget(header)
 
-        # Main content split: left list (≈70%), right blueprint + footer (≈30%)
+        # Main content split: left list (≈30%), right blueprint + footer (≈70%)
         content = QHBoxLayout()
         content.setSpacing(12)
 
-        # Left bar: heatmap list
+        # Left bar: heatmap list (constrained width to approximate 30%)
         left = QFrame()
+        left.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        left.setMinimumWidth(280)  # tweak as needed
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(12, 12, 12, 12)
         left_layout.setSpacing(8)
@@ -66,10 +69,10 @@ class HeatmapList(QWidget):
         self.blueprint_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.blueprint_view.setObjectName("blueprintView")
         self.blueprint_view.setMinimumHeight(240)
-
         footer = QLabel("Tip: Select a heatmap to preview its blueprint and coverage.")
         footer.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         footer.setObjectName("footer")
+        footer.setMinimumHeight(60)
 
         right_layout.addWidget(blueprint_header)
         right_layout.addWidget(self.blueprint_view, 1)
