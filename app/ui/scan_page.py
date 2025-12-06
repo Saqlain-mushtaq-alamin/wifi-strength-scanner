@@ -568,7 +568,7 @@ class ScanPage(QWidget):
         wifi_info = None
         try:
             wifi_info = WifiScanner.scan()
-            print(f"WiFi scan data: {wifi_info}")
+ 
         except Exception as e:
             wifi_info = {"error": str(e)}
 
