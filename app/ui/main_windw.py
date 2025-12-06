@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
 )
 from qfluentwidgets import PrimaryPushButton
 
+from app.ui.heatmap_list import HeatmapList
 from app.ui.widgets.blueprint_viewer import BlueprintViewer
 from app.ui.scan_page import ScanPage
 from PySide6.QtGui import QPainter, QColor, QPen, QBrush, QLinearGradient
@@ -365,8 +366,6 @@ class MainWindow(QMainWindow):
         self.footer = SciFiFooter(self)
         self.main_layout.addWidget(self.footer)
     
-
-
     # =========================================================
     # PAGE SWITCHING
     # =========================================================
@@ -375,7 +374,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(scan_page)
 
     def open_heatmap_list(self):
-        pass  # Add later
+        heatmap_list_page = HeatmapList(self)
+        self.setCentralWidget(heatmap_list_page)
 
     def open_speed_test(self):
         # Placeholder page until Speed Test implementation exists
@@ -387,3 +387,5 @@ class MainWindow(QMainWindow):
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
         self.setCentralWidget(placeholder)
+
+
