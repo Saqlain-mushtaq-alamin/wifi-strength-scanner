@@ -2,7 +2,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QAbstractItemView,
-    QLabel, QFrame, QSizePolicy
+    QLabel, QFrame, QSizePolicy, QStackedWidget, QApplication, QPushButton
 )
 
 class HeatmapList(QWidget):
@@ -25,12 +25,89 @@ class HeatmapList(QWidget):
 
         title = QLabel("Wi‑Fi Heatmaps")
         title.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
-        subtitle = QLabel("Scan, visualize, and refine your coverage")
-        subtitle.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        subtitle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+     
+         # Back button on the left
+        self.back_btn = QPushButton("Back", header)
+        self.back_btn.setObjectName("backBtn")
+        self.back_btn.setFixedHeight(28)
+        self.back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.back_btn.setStyleSheet("""
+        #backBtn {
+            background: transparent;
+            border: none;
+            border-right: 1px solid rgba(120, 200, 255, 180);
+            color: #d7eaff;
+            padding: 0 10px;  /* added padding */
+        }
+        #backBtn:hover {
+            background: rgba(30, 36, 42, 120);  /* hover effect */
+            border-right: 1px solid rgba(120, 200, 255, 220);
+        }
+        #backBtn:pressed {
+            background: rgba(21, 212, 253, 80); /* pressed effect */
+            border-right: 1px solid rgba(120, 200, 255, 255);
+        }
+        """)
+
+        def _go_back():
+            try:
+                # Resolve MainWindow class (prefer main_windw.py, fallback to main_window.py)
+                from importlib import import_module
+                MainWindow = None
+                for mod in ("app.ui.main_windw", "app.ui.main_window"):
+                    try:
+                        MainWindow = getattr(import_module(mod), "MainWindow")
+                        break
+                    except Exception:
+                        continue
+
+                top = self.window()
+
+                # If embedded inside MainWindow, rebuild its landing view in-place
+                if MainWindow is not None and isinstance(top, MainWindow):
+                    try:
+                        # Recreate the main landing UI (title, viewer, buttons)
+                        rebuild = getattr(top, "_setup_ui", None)
+                        if callable(rebuild):
+                            rebuild()
+                            return
+                    except Exception:
+                        pass
+
+                    # Fallback: try to locate a QStackedWidget and go to index 0
+                    parent = self.parentWidget()
+                    while parent is not None and not isinstance(parent, QStackedWidget):
+                        parent = parent.parentWidget()
+                    if isinstance(parent, QStackedWidget):
+                        parent.setCurrentIndex(0)
+                        return
+
+                # Otherwise, show or create the main window and close this standalone window
+                app = QApplication.instance()
+                mw = None
+                if isinstance(app, QApplication) and MainWindow is not None:
+                    mw = next((w for w in app.topLevelWidgets() if isinstance(w, MainWindow)), None)
+                    if mw is None:
+                        mw = MainWindow()
+                if mw is not None:
+                    mw.show()
+                    try:
+                        mw.raise_()
+                        mw.activateWindow()
+                    except Exception:
+                        pass
+                if top is not mw and hasattr(top, "close"):
+                    top.close()
+            except Exception as e:
+                print(f"Back navigation failed: {e}")
+
+        self.back_btn.clicked.connect(_go_back)
+        header_layout.addWidget(self.back_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        header_layout.addStretch(1)
+
 
         header_layout.addWidget(title)
-        header_layout.addWidget(subtitle)
+ 
         root.addWidget(header)
 
         # Main content split: left list (≈30%), right blueprint + footer (≈70%)
