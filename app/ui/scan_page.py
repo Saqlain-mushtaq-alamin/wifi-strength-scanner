@@ -88,30 +88,37 @@ class ScanPage(QWidget):
         def _go_back():
             try:
                 # Resolve MainWindow class (prefer main_windw.py, fallback to main_window.py)
-                try:
-                    from importlib import import_module
-                    MainWindow = None
-                    for mod in ("app.ui.main_windw", "app.ui.main_window"):
-                        try:
-                            MainWindow = getattr(import_module(mod), "MainWindow")
-                            break
-                        except Exception:
-                            continue
-                except Exception:
-                    MainWindow = None
+                from importlib import import_module
+                MainWindow = None
+                for mod in ("app.ui.main_windw", "app.ui.main_window"):
+                    try:
+                        MainWindow = getattr(import_module(mod), "MainWindow")
+                        break
+                    except Exception:
+                        continue
 
                 top = self.window()
 
-                # If we're already inside the main window, just go to the first page of the nearest QStackedWidget
+                # If embedded inside MainWindow, rebuild its landing view in-place
                 if MainWindow is not None and isinstance(top, MainWindow):
+                    try:
+                        # Recreate the main landing UI (title, viewer, buttons)
+                        rebuild = getattr(top, "_setup_ui", None)
+                        if callable(rebuild):
+                            rebuild()
+                            return
+                    except Exception:
+                        pass
+
+                    # Fallback: try to locate a QStackedWidget and go to index 0
                     parent = self.parentWidget()
                     while parent is not None and not isinstance(parent, QStackedWidget):
                         parent = parent.parentWidget()
                     if isinstance(parent, QStackedWidget):
                         parent.setCurrentIndex(0)
-                    return
+                        return
 
-                # Otherwise, show or create the main window and close this window
+                # Otherwise, show or create the main window and close this standalone window
                 app = QApplication.instance()
                 mw = None
                 if isinstance(app, QApplication) and MainWindow is not None:
@@ -515,11 +522,13 @@ class ScanPage(QWidget):
         content_row.addLayout(right_col, 0)
 
         # Update status_text whenever a point is clicked
-        def _update_status(gx: int, gy: int, ix: float, iy: float):
+        def _update_status(gx: int, gy: int, ix: float, iy: float, wifi_text: str, px:int):
             self.status_text.setPlainText(
             f"Last point:\n"
             f"  Grid -> ({gx}, {gy})\n"
             f"  Image px -> ({ix:.1f}, {iy:.1f})"
+            f"WiFi:\n  {wifi_text} \n\n"
+            f"Pixels:  {px}"
             )
         self.viewer.pointClicked.connect(_update_status)
 
@@ -606,7 +615,8 @@ class ScanPage(QWidget):
             f"Last point:\n"
             f"  Grid -> ({gx}, {gy})\n"
             f"  Image px -> ({ix:.1f}, {iy:.1f})\n\n"
-            f"WiFi:\n  {wifi_text}"
+            f"WiFi:\n  {wifi_text}\n\n"
+            f"grid size: {self.viewer._grid_px}px\n "
         )
 
         # Also print to terminal for debugging

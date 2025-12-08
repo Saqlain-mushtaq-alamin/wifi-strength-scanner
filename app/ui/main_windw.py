@@ -16,7 +16,7 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle("WiFi Strength Scanner (wfss)")
+        self.setWindowTitle("WiFi Strength Scanner (WSS)")
         self._setup_ui()
 
     def _setup_ui(self):
@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
                 title_layout.setContentsMargins(24, 24, 24, 24)
                 title_layout.setSpacing(6)
 
-                title_label = QLabel("wfss", self)
+                title_label = QLabel("WSS", self)
                 title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 title_label.setStyleSheet("""
                     color: #e6f2ff;
@@ -291,7 +291,7 @@ class MainWindow(QMainWindow):
                 left_layout.setContentsMargins(0, 0, 0, 0)
                 left_layout.setSpacing(6)
 
-                title = QLabel("wfss")
+                title = QLabel("WSS")
                 title.setStyleSheet("font-size: 18px; font-weight: 700; color: #bcd7ff; letter-spacing: 1px;")
                 subtitle = QLabel("WiFi Strength Scanner")
                 subtitle = QLabel("saqlain • farhan • tamim • govt")
@@ -300,7 +300,7 @@ class MainWindow(QMainWindow):
                 left_layout.addWidget(title)
                 left_layout.addWidget(subtitle)
 
-                right_chip = QLabel("Gang Bangers", self)
+                right_chip = QLabel("Quantum Innovar", self)
                 right_chip.setStyleSheet("""
                     padding: 6px 12px;
                     color: #e7f1ff;
