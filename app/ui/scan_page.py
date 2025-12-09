@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 from qfluentwidgets import PrimaryPushButton, InfoBar, InfoBarPosition
 
 from app.ui.widgets.blueprint_viewer import BlueprintViewer
+from app.core.scanner import WifiScanner
 from PySide6.QtWidgets import QApplication, QStackedWidget
 from PySide6.QtWidgets import QLabel, QTextEdit
 from PySide6.QtWidgets import QGraphicsDropShadowEffect, QGraphicsOpacityEffect
@@ -87,30 +88,37 @@ class ScanPage(QWidget):
         def _go_back():
             try:
                 # Resolve MainWindow class (prefer main_windw.py, fallback to main_window.py)
-                try:
-                    from importlib import import_module
-                    MainWindow = None
-                    for mod in ("app.ui.main_windw", "app.ui.main_window"):
-                        try:
-                            MainWindow = getattr(import_module(mod), "MainWindow")
-                            break
-                        except Exception:
-                            continue
-                except Exception:
-                    MainWindow = None
+                from importlib import import_module
+                MainWindow = None
+                for mod in ("app.ui.main_windw", "app.ui.main_window"):
+                    try:
+                        MainWindow = getattr(import_module(mod), "MainWindow")
+                        break
+                    except Exception:
+                        continue
 
                 top = self.window()
 
-                # If we're already inside the main window, just go to the first page of the nearest QStackedWidget
+                # If embedded inside MainWindow, rebuild its landing view in-place
                 if MainWindow is not None and isinstance(top, MainWindow):
+                    try:
+                        # Recreate the main landing UI (title, viewer, buttons)
+                        rebuild = getattr(top, "_setup_ui", None)
+                        if callable(rebuild):
+                            rebuild()
+                            return
+                    except Exception:
+                        pass
+
+                    # Fallback: try to locate a QStackedWidget and go to index 0
                     parent = self.parentWidget()
                     while parent is not None and not isinstance(parent, QStackedWidget):
                         parent = parent.parentWidget()
                     if isinstance(parent, QStackedWidget):
                         parent.setCurrentIndex(0)
-                    return
+                        return
 
-                # Otherwise, show or create the main window and close this window
+                # Otherwise, show or create the main window and close this standalone window
                 app = QApplication.instance()
                 mw = None
                 if isinstance(app, QApplication) and MainWindow is not None:
@@ -514,11 +522,13 @@ class ScanPage(QWidget):
         content_row.addLayout(right_col, 0)
 
         # Update status_text whenever a point is clicked
-        def _update_status(gx: int, gy: int, ix: float, iy: float):
+        def _update_status(gx: int, gy: int, ix: float, iy: float, wifi_text: str, px:int):
             self.status_text.setPlainText(
             f"Last point:\n"
             f"  Grid -> ({gx}, {gy})\n"
             f"  Image px -> ({ix:.1f}, {iy:.1f})"
+            f"WiFi:\n  {wifi_text} \n\n"
+            f"Pixels:  {px}"
             )
         self.viewer.pointClicked.connect(_update_status)
 
@@ -563,12 +573,46 @@ class ScanPage(QWidget):
 
 
     def _on_point_clicked(self, gx: int, gy: int, ix: float, iy: float):
-        # Show a small toast with the coordinates
-        InfoBar.success(
-            title="Point added",
-            content=f"Grid: ({gx}, {gy}) | Image px: ({ix:.1f}, {iy:.1f})",
-            position=InfoBarPosition.TOP_RIGHT,
-            parent=self
+        # Fetch WiFi scan details and display along with coordinates
+        wifi_info = None
+        try:
+            wifi_info = WifiScanner.scan()
+ 
+        except Exception as e:
+            wifi_info = {"error": str(e)}
+
+        # Build a concise message
+        if wifi_info and isinstance(wifi_info, dict):
+            ssid = wifi_info.get("ssid")
+            bssid = wifi_info.get("bssid")
+            signal = wifi_info.get("signal")
+            rssi = wifi_info.get("rssi")
+            channel = wifi_info.get("channel")
+            radio = wifi_info.get("radio")
+            band = wifi_info.get("band")
+
+            wifi_text = (
+                f"SSID: {ssid or 'N/A'} | BSSID: {bssid or 'N/A'} | "
+                f"Signal: {signal if signal is not None else 'N/A'}% "
+                f"(RSSI: {rssi if rssi is not None else 'N/A'}) | "
+                f"Channel: {channel or 'N/A'} | Radio: {radio or 'N/A'} | Band: {band or 'N/A'}"
+            )
+        else:
+            wifi_text = "WiFi info unavailable"
+
+    
+ 
+
+        # Update status panel for persistent view
+        self.status_text.setPlainText(
+            f"Last point:\n"
+            f"  Grid -> ({gx}, {gy})\n"
+            f"  Image px -> ({ix:.1f}, {iy:.1f})\n\n"
+            f"WiFi:\n  {wifi_text}\n\n"
+            f"grid size: {self.viewer._grid_px}px\n "
         )
-        # Also print to terminal if you want
-        print(f"Clicked grid=({gx},{gy}) image=({ix:.1f},{iy:.1f})")
+
+        # Also print to terminal for debugging
+        print(
+            f"Clicked grid=({gx},{gy}) image=({ix:.1f},{iy:.1f}); {wifi_text}"
+        )
