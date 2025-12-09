@@ -5,9 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6079a51d-9be1-4bbc-bef6-730e7af7a280" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/data_store.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/data_store.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pip_installations.txt" beforeDir="false" afterPath="$PROJECT_DIR$/pip_installations.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/ui/heatmap_list.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ui/heatmap_list.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/ui/main_windw.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ui/main_windw.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/ui/scan_page.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ui/scan_page.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/ui/speedTest.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ui/speedTest.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -33,7 +34,7 @@
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "git-widget-placeholder": "ahmed-farhan",
+    "git-widget-placeholder": "Merging ahmed-farhan",
     "ignore.virus.scanning.warn.message": "true",
     "last_opened_file_path": "C:/Users/ahmed/Documents/VSCode Projects/wifi-strength-scanner",
     "node.js.detected.package.eslint": "true",
@@ -65,7 +66,7 @@
       <workItem from="1764998145675" duration="1268000" />
       <workItem from="1765256045112" duration="194000" />
       <workItem from="1765259344727" duration="2331000" />
-      <workItem from="1765262214667" duration="2533000" />
+      <workItem from="1765262214667" duration="2964000" />
     </task>
     <servers />
   </component>
@@ -82,6 +83,9 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/wifi_strength_scanner$main.coverage" NAME="main Coverage Results" MODIFIED="1765265059627" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>
