@@ -1,7 +1,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QWidget, QFileDialog, QVBoxLayout, QHBoxLayout
+    QWidget, QFileDialog, QVBoxLayout, QHBoxLayout, QMessageBox
 )
 from qfluentwidgets import PrimaryPushButton, InfoBar, InfoBarPosition
 
@@ -171,6 +171,10 @@ class ScanPage(QWidget):
         self.viewer = BlueprintViewer(viewer_container)
         # Receive clicks (gridX, gridY, imgX, imgY)
         self.viewer.pointClicked.connect(self._on_point_clicked)
+        # Receive marker clicks for editing
+        self.viewer.markerClicked.connect(self._on_marker_clicked)
+        # Receive marker deletion requests
+        self.viewer.markerDeleteRequested.connect(self._on_marker_delete_requested)
         vc_layout.addWidget(self.viewer)
 
         main_layout.addWidget(viewer_container, 1)
@@ -481,6 +485,11 @@ class ScanPage(QWidget):
 
         # Store the scan point data (x, y, rssi)
         if rssi_value is not None:
+            # Update the marker with RSSI value
+            if self.viewer._markers:
+                self.viewer._markers[-1].rssi = rssi_value
+                self.viewer.update()
+
             self.scan_points.append((ix, iy, rssi_value))
             print(f"Stored scan point: ({ix:.1f}, {iy:.1f}, {rssi_value})")
         else:
@@ -504,6 +513,113 @@ class ScanPage(QWidget):
         print(
             f"Clicked at pixel=({ix:.1f},{iy:.1f}); {wifi_text}"
         )
+
+    def _on_marker_clicked(self, marker_index: int):
+        """Handle clicks on existing markers for editing."""
+        marker_data = self.viewer.get_marker_data(marker_index)
+        if marker_data is None:
+            return
+
+        # Show dialog in edit mode
+        dialog = WiFiInputDialog(
+            self,
+            marker_data.x,
+            marker_data.y,
+            edit_mode=True,
+            current_rssi=marker_data.rssi
+        )
+        result = dialog.exec()
+
+        if result != WiFiInputDialog.DialogCode.Accepted:
+            # User cancelled - no changes
+            return
+
+        # Get the new RSSI value
+        new_rssi = dialog.rssi_value
+        if new_rssi is None:
+            return
+
+        # Update the marker
+        self.viewer.update_marker_rssi(marker_index, new_rssi)
+
+        # Update the corresponding scan point
+        # Find the scan point that matches this marker
+        for i, (x, y, rssi) in enumerate(self.scan_points):
+            if abs(x - marker_data.x) < 0.1 and abs(y - marker_data.y) < 0.1:
+                self.scan_points[i] = (x, y, new_rssi)
+                print(f"Updated scan point {i}: ({x:.1f}, {y:.1f}, {new_rssi})")
+                break
+
+        # Update status panel
+        wifi_info = dialog.wifi_info
+        if wifi_info and isinstance(wifi_info, dict):
+            ssid = wifi_info.get("ssid")
+            bssid = wifi_info.get("bssid")
+            signal = wifi_info.get("signal")
+            rssi = wifi_info.get("rssi")
+            channel = wifi_info.get("channel")
+            radio = wifi_info.get("radio")
+            band = wifi_info.get("band")
+
+            wifi_text = (
+                f"SSID: {ssid or 'N/A'} | BSSID: {bssid or 'N/A'} | "
+                f"Signal: {signal if signal is not None else 'N/A'}% "
+                f"(RSSI: {rssi if rssi is not None else 'N/A'}) | "
+                f"Channel: {channel or 'N/A'} | Radio: {radio or 'N/A'} | Band: {band or 'N/A'}"
+            )
+        else:
+            wifi_text = f"Manual Input - RSSI: {new_rssi}"
+
+        self.status_text.setPlainText(
+            f"Updated point:\n"
+            f"  Pixel coordinates -> ({marker_data.x:.1f}, {marker_data.y:.1f})\n\n"
+            f"WiFi:\n  {wifi_text}\n\n"
+            f"Total points collected: {len(self.scan_points)}"
+        )
+
+        print(f"Marker {marker_index} updated: ({marker_data.x:.1f}, {marker_data.y:.1f}) -> RSSI: {new_rssi}")
+
+    def _on_marker_delete_requested(self, marker_index: int):
+        """Handle request to delete a marker."""
+        marker_data = self.viewer.get_marker_data(marker_index)
+        if marker_data is None:
+            return
+
+        # Confirmation dialog
+        rssi_text = f"{marker_data.rssi:.0f} dBm" if marker_data.rssi else "N/A"
+        reply = QMessageBox.question(
+            self,
+            "Delete Marker",
+            f"Delete marker at ({marker_data.x:.1f}, {marker_data.y:.1f})?\n"
+            f"RSSI: {rssi_text}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            # Delete from viewer
+            self.viewer.delete_marker(marker_index)
+
+            # Delete from scan_points
+            for i, (x, y, rssi) in enumerate(self.scan_points):
+                if abs(x - marker_data.x) < 0.1 and abs(y - marker_data.y) < 0.1:
+                    self.scan_points.pop(i)
+                    print(f"Deleted scan point {i}: ({x:.1f}, {y:.1f}, {rssi})")
+                    break
+
+            # Update status
+            self.status_text.setPlainText(
+                f"Deleted marker at ({marker_data.x:.1f}, {marker_data.y:.1f})\n"
+                f"RSSI: {rssi_text}\n\n"
+                f"Total points remaining: {len(self.scan_points)}"
+            )
+
+            InfoBar.success(
+                title="Marker Deleted",
+                content=f"Removed scan point at ({marker_data.x:.0f}, {marker_data.y:.0f})",
+                position=InfoBarPosition.TOP,
+                parent=self
+            )
 
     def _on_generate_heatmap(self):
         """Generate heatmap from collected scan points and blend with blueprint."""
@@ -559,31 +675,54 @@ class ScanPage(QWidget):
             # Blend heatmap with blueprint
             blended = blend(blueprint_bgr, heatmap_bgr, alpha=0.6)
 
-            # Save the result
+            # Save the result to user's Documents folder
             from datetime import datetime
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_dir = Path(self.blueprint_path).parent / "heatmaps"
-            output_dir.mkdir(exist_ok=True)
+            from app.core.save_locations import SaveLocations
+            import shutil
 
-            output_path = output_dir / f"heatmap_{timestamp}.png"
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Get paths for this scan
+            output_path = SaveLocations.get_scan_heatmap_path(timestamp)
+            data_path = SaveLocations.get_scan_data_path(timestamp)
+            blueprint_copy_path = SaveLocations.get_scan_blueprint_path(timestamp)
+
+            # Save the blended heatmap
             cv2.imwrite(str(output_path), blended)
 
-            # Also save scan points data
-            data_path = output_dir / f"scan_data_{timestamp}.json"
+            # Copy the original blueprint to the scan folder
+            shutil.copy2(self.blueprint_path, blueprint_copy_path)
+
+            # Save scan points data with metadata
             import json
             with open(data_path, 'w') as f:
                 json.dump({
-                    'blueprint': str(self.blueprint_path),
+                    'blueprint': str(blueprint_copy_path),
+                    'original_blueprint': str(self.blueprint_path),
                     'timestamp': timestamp,
+                    'generated_at': datetime.now().isoformat(),
+                    'num_points': len(self.scan_points),
+                    'blueprint_dimensions': {'width': width, 'height': height},
                     'points': [(float(x), float(y), float(rssi)) for x, y, rssi in self.scan_points]
                 }, f, indent=2)
 
             InfoBar.success(
                 title="Heatmap Generated",
-                content=f"Saved to: {output_path.name}",
+                content=f"Saved to: {output_path.parent.name}",
                 position=InfoBarPosition.TOP,
                 parent=self,
-                duration=5000
+                duration=3000
+            )
+
+            # Show the save location in status
+            self.status_text.setPlainText(
+                f"✅ Heatmap Generated Successfully!\n\n"
+                f"📁 Saved to:\n{output_path.parent}\n\n"
+                f"📊 Scan Details:\n"
+                f"  • {len(self.scan_points)} scan points\n"
+                f"  • Blueprint: {width}x{height}px\n"
+                f"  • Time: {datetime.now().strftime('%I:%M %p')}\n\n"
+                f"💡 View in History tab"
             )
 
             print(f"Heatmap saved to: {output_path}")
@@ -606,4 +745,3 @@ class ScanPage(QWidget):
             print(f"Heatmap generation error: {e}")
             import traceback
             traceback.print_exc()
-

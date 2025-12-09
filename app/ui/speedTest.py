@@ -1,17 +1,125 @@
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QFont, QColor
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGraphicsDropShadowEffect
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGraphicsDropShadowEffect, QCheckBox
 from qfluentwidgets import PrimaryPushButton
+
+
+class SpeedTestThread(QThread):
+    """Background thread for running speed test without blocking UI."""
+    progress = Signal(str)  # Progress messages
+    finished = Signal(dict)  # Final results: {download, upload, ping}
+    error = Signal(str)  # Error message
+
+    def __init__(self, run_multiple=False):
+        super().__init__()
+        self._is_cancelled = False
+        self._run_multiple = run_multiple
+
+    def cancel(self):
+        """Request cancellation of the speed test."""
+        self._is_cancelled = True
+
+    def run(self):
+        try:
+            if self._is_cancelled:
+                return
+
+            self.progress.emit("Initializing speed test...")
+            import speedtest
+            import socket
+
+            # Set a reasonable timeout for socket operations
+            socket.setdefaulttimeout(15)
+
+            if self._is_cancelled:
+                return
+
+            # Use secure connection and configure for better reliability
+            st = speedtest.Speedtest(secure=True)
+
+            if self._is_cancelled:
+                return
+
+            self.progress.emit("Finding best server...")
+            # Get best server - this is where it often hangs
+            st.get_best_server()
+
+            if self._run_multiple:
+                # Run 3 tests and average
+                num_tests = 3
+                download_results = []
+                upload_results = []
+                ping_results = []
+
+                for i in range(num_tests):
+                    if self._is_cancelled:
+                        return
+
+                    self.progress.emit(f"Test {i+1}/{num_tests}: Testing download speed...")
+                    download_bps = st.download(threads=None)
+                    download_mbps = download_bps / 1_000_000
+                    download_results.append(download_mbps)
+
+                    if self._is_cancelled:
+                        return
+
+                    self.progress.emit(f"Test {i+1}/{num_tests}: Testing upload speed...")
+                    upload_bps = st.upload(threads=None, pre_allocate=False)
+                    upload_mbps = upload_bps / 1_000_000
+                    upload_results.append(upload_mbps)
+                    ping_results.append(st.results.ping)
+
+                    # Small delay between tests
+                    if i < num_tests - 1:
+                        self.msleep(1000)
+
+                # Average the results
+                download_mbps = sum(download_results) / len(download_results)
+                upload_mbps = sum(upload_results) / len(upload_results)
+                ping = sum(ping_results) / len(ping_results)
+
+            else:
+                # Single test
+                if self._is_cancelled:
+                    return
+
+                self.progress.emit("Testing download speed...")
+                download_bps = st.download(threads=None)
+                download_mbps = download_bps / 1_000_000  # Convert to Mbps
+
+                if self._is_cancelled:
+                    return
+
+                self.progress.emit("Testing upload speed...")
+                upload_bps = st.upload(threads=None, pre_allocate=False)
+                upload_mbps = upload_bps / 1_000_000  # Convert to Mbps
+
+                if self._is_cancelled:
+                    return
+
+                ping = st.results.ping
+
+            results = {
+                'download': download_mbps,
+                'upload': upload_mbps,
+                'ping': ping
+            }
+
+            if not self._is_cancelled:
+                self.finished.emit(results)
+
+        except Exception as e:
+            if not self._is_cancelled:
+                import traceback
+                error_detail = traceback.format_exc()
+                print(f"Speed test error details:\n{error_detail}")
+                self.error.emit(f"Speed test failed: {str(e)}")
 
 
 class SpeedTestPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._timer = QTimer(self)
-        self._timer.setInterval(60)
-        self._timer.timeout.connect(self._tick)
-        self._target = 0.0
-        self._value = 0.0
+        self._test_thread = None
         self._build_ui()
 
     def _build_ui(self):
@@ -81,18 +189,75 @@ class SpeedTestPage(QWidget):
         # Add header to the top (non-expanding)
         root.addWidget(header, 0)
 
+        # Speed readout labels
+        info_container = QWidget(self)
+        info_layout = QVBoxLayout(info_container)
+        info_layout.setContentsMargins(20, 20, 20, 20)
+        info_layout.setSpacing(15)
 
-        # Speed readout
-        self.readout = QLabel("0.0 Mbps")
-        rf = QFont("Segoe UI", 32, QFont.Weight.Bold)
-        self.readout.setFont(rf)
-        self.readout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        root.addWidget(self.readout, 1)
+        # Status label
+        self.status_label = QLabel("Ready to test")
+        self.status_label.setFont(QFont("Segoe UI", 12))
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setStyleSheet("color: #9fb0c0;")
+        info_layout.addWidget(self.status_label)
+
+        # Download speed
+        self.download_label = QLabel("Download: -- Mbps")
+        self.download_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
+        self.download_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.download_label.setStyleSheet("color: #21d4fd;")
+        info_layout.addWidget(self.download_label)
+
+        # Upload speed
+        self.upload_label = QLabel("Upload: -- Mbps")
+        self.upload_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
+        self.upload_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.upload_label.setStyleSheet("color: #b721ff;")
+        info_layout.addWidget(self.upload_label)
+
+        # Ping
+        self.ping_label = QLabel("Ping: -- ms")
+        self.ping_label.setFont(QFont("Segoe UI", 18))
+        self.ping_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.ping_label.setStyleSheet("color: #d7eaff;")
+        info_layout.addWidget(self.ping_label)
+
+        # Multiple tests checkbox
+        self.multi_test_checkbox = QCheckBox("Run 3 tests and average (more consistent results)")
+        self.multi_test_checkbox.setFont(QFont("Segoe UI", 10))
+        self.multi_test_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #9fb0c0;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+                border: 2px solid rgba(120, 200, 255, 160);
+                border-radius: 4px;
+                background: rgba(30, 36, 42, 140);
+            }
+            QCheckBox::indicator:checked {
+                background: rgba(33, 212, 253, 200);
+                border: 2px solid rgba(33, 212, 253, 220);
+            }
+            QCheckBox::indicator:hover {
+                border: 2px solid rgba(120, 200, 255, 220);
+            }
+        """)
+        info_layout.addWidget(self.multi_test_checkbox, 0, Qt.AlignmentFlag.AlignCenter)
+
+        root.addWidget(info_container, 1)
+
+        # Buttons container
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(20)
 
         # Start button (bigger, classic look, hover/click effects with speed vibe)
         self.start_btn = PrimaryPushButton("Start Speed Test", self)
         self.start_btn.setObjectName("startBtn")
-        self.start_btn.setMinimumSize(260, 52)
+        self.start_btn.setMinimumSize(220, 52)
         self.start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.start_btn.setStyleSheet("""
         #startBtn {
@@ -120,6 +285,11 @@ class SpeedTestPage(QWidget):
             border: 2px solid rgba(120, 255, 255, 255);
             padding-top: 12px;      /* subtle press depth */
             padding-bottom: 8px;
+        }
+        #startBtn:disabled {
+            background: rgba(100, 100, 100, 150);
+            border: 2px solid rgba(120, 120, 120, 150);
+            color: rgba(200, 200, 200, 150);
         }
         """)
         # Neon-ish glow that intensifies on hover/press
@@ -155,7 +325,48 @@ class SpeedTestPage(QWidget):
         self.start_btn.released.connect(_released)
 
         self.start_btn.clicked.connect(self.start_test)
-        root.addWidget(self.start_btn, 0, Qt.AlignmentFlag.AlignHCenter)
+
+        # Cancel button
+        self.cancel_btn = PrimaryPushButton("Cancel", self)
+        self.cancel_btn.setObjectName("cancelBtn")
+        self.cancel_btn.setMinimumSize(120, 52)
+        self.cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.cancel_btn.setVisible(False)  # Hidden by default
+        self.cancel_btn.setStyleSheet("""
+        #cancelBtn {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 rgba(255, 80, 80, 230),
+                        stop:1 rgba(255, 120, 120, 230));
+            color: #ffffff;
+            border: 2px solid rgba(255, 100, 100, 200);
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        #cancelBtn:hover {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 rgba(255, 100, 100, 255),
+                        stop:1 rgba(255, 140, 140, 255));
+            border: 2px solid rgba(255, 120, 120, 230);
+        }
+        #cancelBtn:pressed {
+            background: qlineargradient(x1:1, y1:0, x2:0, y2:0,
+                        stop:0 rgba(230, 70, 70, 230),
+                        stop:1 rgba(230, 100, 100, 230));
+            border: 2px solid rgba(255, 140, 140, 255);
+            padding-top: 12px;
+            padding-bottom: 8px;
+        }
+        """)
+        self.cancel_btn.clicked.connect(self.cancel_test)
+
+        buttons_layout.addStretch()
+        buttons_layout.addWidget(self.start_btn)
+        buttons_layout.addWidget(self.cancel_btn)
+        buttons_layout.addStretch()
+
+        root.addLayout(buttons_layout, 0)
 
         root.addStretch(1)
 
@@ -179,44 +390,79 @@ class SpeedTestPage(QWidget):
             pass
 
     def start_test(self):
-        # Run multiple tests and show average
-        import random
+        """Start the speed test in a background thread."""
+        if self._test_thread is not None and self._test_thread.isRunning():
+            return  # Test already running
+
+        # Reset display
+        self.download_label.setText("Download: -- Mbps")
+        self.upload_label.setText("Upload: -- Mbps")
+        self.ping_label.setText("Ping: -- ms")
+        self.status_label.setText("Starting test...")
+
+        # Update buttons
         self.start_btn.setDisabled(True)
-        self._value = 0.0
-        self._test_count = 0
-        self._test_results = []
-        self._max_tests = 3  # Run 3 tests for averaging
-        self._target = random.uniform(50.0, 450.0)
-        self._timer.start()
+        self.start_btn.setText("Testing...")
+        self.cancel_btn.setVisible(True)
+        self.multi_test_checkbox.setDisabled(True)
 
-    def _tick(self):
-        # Ease toward target and update readout
-        step = max(1.0, (self._target - self._value) * 0.12)
-        self._value = min(self._target, self._value + step)
+        # Create and start thread with multiple test option
+        run_multiple = self.multi_test_checkbox.isChecked()
+        self._test_thread = SpeedTestThread(run_multiple=run_multiple)
+        self._test_thread.progress.connect(self._on_progress)
+        self._test_thread.finished.connect(self._on_test_finished)
+        self._test_thread.error.connect(self._on_test_error)
+        self._test_thread.start()
 
-        # Show current test number
-        test_num = self._test_count + 1
-        self.readout.setText(f"{self._value:,.1f} Mbps (Test {test_num}/{self._max_tests})")
+    def cancel_test(self):
+        """Cancel the running speed test."""
+        if self._test_thread is not None and self._test_thread.isRunning():
+            self.status_label.setText("Cancelling test...")
+            self._test_thread.cancel()
+            self._test_thread.quit()
+            self._test_thread.wait(2000)  # Wait up to 2 seconds
+            if self._test_thread.isRunning():
+                self._test_thread.terminate()  # Force terminate if still running
 
-        if abs(self._target - self._value) < 0.5:
-            # Store this test result
-            self._test_results.append(self._value)
-            self._test_count += 1
+            self.status_label.setText("Test cancelled")
+            self._reset_buttons()
 
-            # Check if we need more tests
-            if self._test_count < self._max_tests:
-                # Start next test
-                import random
-                self._value = 0.0
-                self._target = random.uniform(50.0, 450.0)
-            else:
-                # All tests complete - show average
-                self._timer.stop()
-                avg_speed = sum(self._test_results) / len(self._test_results)
-                min_speed = min(self._test_results)
-                max_speed = max(self._test_results)
-                self.readout.setText(
-                    f"Avg: {avg_speed:,.1f} Mbps\n"
-                    f"Min: {min_speed:,.1f} | Max: {max_speed:,.1f}"
-                )
-                self.start_btn.setDisabled(False)
+    def _reset_buttons(self):
+        """Reset button states after test completion or cancellation."""
+        self.start_btn.setDisabled(False)
+        self.start_btn.setText("Start Speed Test")
+        self.cancel_btn.setVisible(False)
+        self.multi_test_checkbox.setDisabled(False)
+
+    def _on_progress(self, message: str):
+        """Update status label with progress message."""
+        self.status_label.setText(message)
+
+    def _on_test_finished(self, results: dict):
+        """Handle test completion with results."""
+        download = results['download']
+        upload = results['upload']
+        ping = results['ping']
+
+        self.download_label.setText(f"Download: {download:.2f} Mbps")
+        self.upload_label.setText(f"Upload: {upload:.2f} Mbps")
+        self.ping_label.setText(f"Ping: {ping:.1f} ms")
+        self.status_label.setText("Test complete!")
+
+        # Re-enable button
+        self._reset_buttons()
+
+        print(f"Speed test results - Download: {download:.2f} Mbps, Upload: {upload:.2f} Mbps, Ping: {ping:.1f} ms")
+
+    def _on_test_error(self, error_msg: str):
+        """Handle test error."""
+        self.status_label.setText(f"Error: {error_msg}")
+        self.download_label.setText("Download: Error")
+        self.upload_label.setText("Upload: Error")
+        self.ping_label.setText("Ping: Error")
+
+        # Re-enable button
+        self._reset_buttons()
+
+        print(f"Speed test error: {error_msg}")
+

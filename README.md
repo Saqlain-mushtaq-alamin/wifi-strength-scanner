@@ -4,13 +4,88 @@ A comprehensive tool for scanning and visualizing WiFi signal strength with inte
 
 ## 🎯 Features
 
-- **Blueprint Upload**: Load floor plans or maps as blueprints
-- **Interactive Scanning**: Click on the blueprint to scan WiFi strength at specific locations
-- **Automatic WiFi Detection**: Uses Windows `netsh` to automatically detect current WiFi signal strength
-- **Heatmap Generation**: Creates beautiful heatmaps using IDW (Inverse Distance Weighting) interpolation
-- **Image Blending**: Overlays heatmaps on original blueprints for clear visualization
-- **Data Export**: Saves both the generated heatmap images and raw scan data in JSON format
-- **Modern UI**: Sleek sci-fi themed interface built with PySide6 and Fluent Widgets
+### Core Functionality
+- **Blueprint Upload**: Load floor plans, maps, or any image as a blueprint for WiFi analysis
+  - Supports multiple formats: PNG, JPG, JPEG, SVG, BMP, GIF, WebP
+  - Auto-scaling to fit viewer while maintaining aspect ratio
+  - Pixel-perfect coordinate mapping for accurate measurements
+
+- **Interactive WiFi Scanning**: Click anywhere on the blueprint to scan WiFi strength
+  - Automatic WiFi detection using Windows `netsh` command
+  - Manual RSSI input option for custom measurements
+  - Visual markers (red circles) show scanned locations
+  - Real-time RSSI values displayed next to each marker
+
+- **✨ NEW: Edit Marker Capability**: Click existing markers to update their RSSI values
+  - **Rescan Option**: Take a new automatic WiFi measurement at the same location
+  - **Manual Update**: Edit RSSI values manually for corrections or custom data
+  - Smart click detection (10-pixel radius) to distinguish between adding and editing
+  - Live data synchronization - changes immediately reflected in heatmap generation
+  - Visual feedback showing current RSSI values during editing
+
+### Heatmap & Visualization
+- **Advanced Heatmap Generation**: Creates beautiful, accurate WiFi coverage heatmaps
+  - IDW (Inverse Distance Weighting) interpolation algorithm
+  - Smooth color gradients from red (strong) to blue (weak signal)
+  - Customizable interpolation parameters
+  - Real-time preview in the viewer
+
+- **Image Blending**: Sophisticated overlay of heatmaps on original blueprints
+  - Adjustable transparency for optimal visibility
+  - High-quality alpha blending preserves blueprint details
+  - Clear visualization of WiFi coverage patterns
+
+### Data Management
+- **Scan History**: Browse and manage all previous WiFi scans
+  - Timestamped records of all heatmap generations
+  - Quick access to historical data and images
+  - JSON export of raw scan data for external analysis
+
+- **Data Persistence**: Automatic saving of scan data and results
+  - Heatmap images saved with timestamps (PNG format)
+  - Scan point data exported as JSON files
+  - Blueprint-organized folder structure for easy management
+  - Format: `[(x, y, rssi), ...]` for easy integration
+
+### User Interface
+- **Modern Dark Theme UI**: Sleek, sci-fi inspired interface
+  - Built with PySide6 and QFluentWidgets
+  - Smooth animations and hover effects
+  - Glassy, translucent panels with gradient accents
+  - Responsive layout that adapts to window size
+
+- **Real-time Status Panel**: Live feedback during scanning
+  - Displays current point coordinates
+  - Shows WiFi details (SSID, BSSID, Signal %, RSSI, Channel, Radio, Band)
+  - Running total of collected scan points
+  - Color-coded success/error messages
+
+- **Speed Test Integration**: Built-in internet speed testing (separate feature)
+  - Download and upload speed measurements
+  - Network performance monitoring
+
+### Technical Features
+- **Pixel Coordinate System**: All measurements use precise image pixel coordinates
+  - No grid-based limitations - place markers anywhere
+  - Sub-pixel precision for accurate positioning
+  - Coordinate system independent of widget size
+
+- **Smart Marker Management**: Intelligent handling of scan point markers
+  - Add new markers by clicking empty space
+  - Edit existing markers by clicking on them
+  - Visual RSSI display on each marker
+  - Automatic synchronization between markers and data array
+
+- **Flexible Input Methods**: Multiple ways to input WiFi strength data
+  - Auto-scan: Automatic detection of current WiFi connection
+  - Manual input: Enter RSSI values manually (-100 to 0 dBm range)
+  - Edit mode: Update existing measurements without re-adding
+
+- **Error Handling & Validation**: Robust error checking throughout
+  - WiFi connection validation
+  - Input range validation for RSSI values
+  - Image loading verification
+  - User-friendly error messages with InfoBar notifications
 
 ## 🚀 Quick Start
 
@@ -38,20 +113,52 @@ A comprehensive tool for scanning and visualizing WiFi signal strength with inte
 
 3. **Scan WiFi Points**:
    - Click anywhere on the blueprint image
-   - The app will automatically scan WiFi strength at that location
-   - Red dots will appear showing where you've scanned
-   - View scan details in the status panel
+   - Choose your input method:
+     - **Auto-scan WiFi**: Automatically detects current WiFi signal strength
+     - **Manual input**: Enter RSSI value manually (e.g., -45 dBm)
+   - Red circular markers appear showing where you've scanned
+   - RSSI values are displayed next to each marker
+   - View detailed scan information in the status panel
 
-4. **Generate Heatmap**:
+## 🆕 Recent Updates
+
+### December 9, 2025 - Edit Marker Feature
+**NEW!** You can now edit existing WiFi scan points by clicking on them:
+- ✨ Click on any marker to edit its RSSI value
+- 🔄 Rescan WiFi at the same location to update measurements
+- ✏️ Manually update RSSI values for corrections
+- 📊 Real-time synchronization with heatmap data
+- 🎯 Smart click detection (10px radius) distinguishes add vs edit
+
+This makes it easy to:
+- Correct measurements without deleting and re-adding
+- Update signal strength after network changes
+- Fine-tune data before generating heatmaps
+- Track signal changes at specific locations over time
+
+See `EDIT_MARKER_FEATURE.md` and `QUICK_START_EDIT.md` for detailed documentation.
+
+4. **✨ Edit Existing Markers** (NEW):
+   - Click directly on any existing marker (red circle)
+   - Edit dialog opens showing current RSSI value
+   - Choose your update method:
+     - **Rescan WiFi**: Take a new measurement at the same location
+     - **Manual input**: Enter a new RSSI value (pre-filled with current value)
+   - Click "Update" to save changes or "Cancel" to keep original
+   - Marker updates immediately on the blueprint
+   - Changes are automatically synced to the scan data
+
+5. **Generate Heatmap**:
    - After scanning multiple points (recommended: 10+ points for good coverage)
    - Click "Generate Heatmap"
    - The heatmap will be saved to a `heatmaps/` folder next to your blueprint
    - The result will be displayed in the viewer
 
-5. **Review Results**:
+6. **Review Results**:
    - Heatmap images are saved with timestamps
    - Scan data is saved in JSON format for later analysis
    - Red areas indicate strong signal, blue areas indicate weak signal
+   - Access history through the "History" tab to view previous scans
 
 ## 📁 Project Structure
 
@@ -88,13 +195,21 @@ wifi-strength-scanner/
 ### Data Flow
 
 1. **Click on Blueprint** → Captures pixel coordinates (x, y)
+   - Detects if clicking on existing marker or empty space
+   - Existing marker: Opens edit dialog
+   - Empty space: Opens add dialog
 2. **WiFi Scan** → Runs `netsh wlan show interfaces` to get RSSI (signal strength in dBm)
-3. **Store Data** → Saves point as tuple: `(x, y, rssi)`
+   - Or manual input option for custom values
+3. **Store/Update Data** → Saves or updates point as tuple: `(x, y, rssi)`
+   - New points: Appended to scan_points array
+   - Edited points: Updates existing entry in array
 4. **Generate Heatmap** → 
    - Uses IDW interpolation to create a continuous heat field from discrete points
    - Applies color mapping (red = strong, blue = weak)
    - Blends heatmap with original blueprint
 5. **Save & Display** → Outputs final image and JSON data
+   - Heatmap PNG with timestamp
+   - JSON file with all scan point coordinates and RSSI values
 
 ### Core Algorithms
 
@@ -152,6 +267,21 @@ Where each point is `[x_pixels, y_pixels, rssi_dBm]`
 **Can't see the generated heatmap?**
 - Check the `heatmaps/` folder next to your blueprint
 - Verify the console output for the save path
+
+**Dialog doesn't appear when clicking on the blueprint?**
+- Make sure you've uploaded a blueprint image first
+- Try clicking slightly away from existing markers if you want to add a new point
+- If editing, click directly on the marker's center (within 10 pixels)
+
+**Can't edit an existing marker?**
+- Click directly on the red circular marker (not next to it)
+- The marker's RSSI value should be visible - click near that area
+- A 10-pixel click radius is used for detection
+
+**Marker shows wrong RSSI after editing?**
+- Check the status panel to verify the update was successful
+- The marker should update immediately after clicking "Update"
+- Console logs will show the updated value for debugging
 
 ## 📝 License
 

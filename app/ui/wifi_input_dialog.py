@@ -10,14 +10,16 @@ from app.core.scanner import WifiScanner
 class WiFiInputDialog(QDialog):
     """Dialog to choose between automatic WiFi scan or manual RSSI input."""
 
-    def __init__(self, parent=None, x=0, y=0):
+    def __init__(self, parent=None, x=0, y=0, edit_mode=False, current_rssi=None):
         super().__init__(parent)
         self.x = x
         self.y = y
+        self.edit_mode = edit_mode
+        self.current_rssi = current_rssi
         self.rssi_value = None
         self.wifi_info = None
 
-        self.setWindowTitle("WiFi Scan Options")
+        self.setWindowTitle("Edit WiFi Scan Point" if edit_mode else "WiFi Scan Options")
         self.setModal(True)
         self.setMinimumWidth(400)
 
@@ -30,7 +32,12 @@ class WiFiInputDialog(QDialog):
         layout.setSpacing(15)
 
         # Title
-        title = QLabel(f"Add WiFi Scan Point ({self.x:.1f}, {self.y:.1f})")
+        if self.edit_mode:
+            title = QLabel(f"Edit WiFi Scan Point ({self.x:.1f}, {self.y:.1f})")
+            if self.current_rssi is not None:
+                title.setText(title.text() + f"\nCurrent RSSI: {self.current_rssi:.0f} dBm")
+        else:
+            title = QLabel(f"Add WiFi Scan Point ({self.x:.1f}, {self.y:.1f})")
         title.setStyleSheet("font-size: 14px; font-weight: bold; color: #e6edf3;")
         layout.addWidget(title)
 
@@ -41,7 +48,7 @@ class WiFiInputDialog(QDialog):
 
         self.button_group = QButtonGroup(self)
 
-        self.auto_radio = QRadioButton("Auto-scan WiFi (use current connection)")
+        self.auto_radio = QRadioButton("Auto-scan WiFi (use current connection)" if not self.edit_mode else "Rescan WiFi")
         self.auto_radio.setChecked(True)
         self.auto_radio.setStyleSheet("color: #d7eaff;")
         self.button_group.addButton(self.auto_radio)
@@ -62,6 +69,9 @@ class WiFiInputDialog(QDialog):
 
         self.rssi_input = QLineEdit()
         self.rssi_input.setPlaceholderText("e.g., -45")
+        # Pre-fill with current RSSI in edit mode
+        if self.edit_mode and self.current_rssi is not None:
+            self.rssi_input.setText(str(int(self.current_rssi)))
         self.rssi_input.setEnabled(False)
         validator = QDoubleValidator(-100.0, 0.0, 2)
         self.rssi_input.setValidator(validator)
@@ -73,7 +83,8 @@ class WiFiInputDialog(QDialog):
         self.auto_radio.toggled.connect(self._on_mode_changed)
 
         # Info text area
-        self.info_label = QLabel("Click OK to scan WiFi automatically")
+        info_text = "Click OK to rescan WiFi automatically" if self.edit_mode else "Click OK to scan WiFi automatically"
+        self.info_label = QLabel(info_text)
         self.info_label.setWordWrap(True)
         self.info_label.setStyleSheet(
             "color: #9fb0c0; font-size: 11px; "
@@ -88,7 +99,7 @@ class WiFiInputDialog(QDialog):
         button_layout.setSpacing(10)
         button_layout.addStretch()
 
-        self.ok_btn = QPushButton("OK")
+        self.ok_btn = QPushButton("Update" if self.edit_mode else "OK")
         self.ok_btn.setFixedWidth(100)
         self.ok_btn.clicked.connect(self._on_ok_clicked)
         button_layout.addWidget(self.ok_btn)
@@ -104,7 +115,10 @@ class WiFiInputDialog(QDialog):
         """Enable/disable manual input field based on mode."""
         self.rssi_input.setEnabled(not checked)
         if checked:
-            self.info_label.setText("Click OK to scan WiFi automatically")
+            if self.edit_mode:
+                self.info_label.setText("Click Update to rescan WiFi automatically")
+            else:
+                self.info_label.setText("Click OK to scan WiFi automatically")
         else:
             self.info_label.setText("Enter RSSI value (typically between -30 to -90)")
 

@@ -1,15 +1,20 @@
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QAbstractItemView,
     QLabel, QFrame, QSizePolicy, QStackedWidget, QApplication, QPushButton
 )
+from pathlib import Path
+import json
+from datetime import datetime
 
 class HeatmapList(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.heatmap_data = {}  # Store heatmap metadata
         self.HeatmapListPage()
         self.apply_styles()
+        self.load_saved_heatmaps()  # Load existing heatmaps
 
     def HeatmapListPage(self):
         root = QVBoxLayout()
@@ -200,20 +205,131 @@ class HeatmapList(QWidget):
             }
         """)
 
-    def on_heatmap_selected(self, item):
-        """Update blueprint preview when a heatmap is selected."""
-        heatmap_name = item.text()
+    def load_saved_heatmaps(self):
+        """Scan the Saved_Scans folder and populate the list with heatmaps."""
+        from app.core.save_locations import SaveLocations
 
-        if heatmap_name not in self.heatmap_data:
-            self.blueprint_view.setText(f"Error: Heatmap data not found")
+        self.heatmap_list_widget.clear()
+        self.heatmap_data.clear()
+
+        # Try to migrate old scans first
+        try:
+            SaveLocations.migrate_old_scans()
+        except Exception as e:
+            print(f"Migration warning: {e}")
+
+        # Get all scan folders
+        scan_folders = SaveLocations.list_all_scans()
+
+        if not scan_folders:
+            self.heatmap_list_widget.addItem("No saved heatmaps found")
+            self.blueprint_view.setText(
+                "No scans yet\n\n"
+                "Generate a heatmap from the Scan tab\n"
+                "and it will appear here"
+            )
             return
 
-        heatmap_info = self.heatmap_data[heatmap_name]
-        heatmap_path = heatmap_info.get('heatmap_path')
-        data_path = heatmap_info.get('data_path')
+        # Process each scan folder
+        for scan_folder in scan_folders:
+            timestamp_str = scan_folder.name
+
+            # Find heatmap and data files
+            heatmap_files = list(scan_folder.glob("heatmap_*.png"))
+            data_files = list(scan_folder.glob("scan_data_*.json"))
+
+            if not heatmap_files:
+                continue
+
+            heatmap_path = heatmap_files[0]
+            data_path = data_files[0] if data_files else None
+
+            # Parse metadata
+            metadata = self._parse_heatmap_metadata(data_path, timestamp_str)
+
+            # Store in dictionary
+            scan_id = f"scan_{timestamp_str}"
+            self.heatmap_data[scan_id] = {
+                "heatmap_path": heatmap_path,
+                "data_path": data_path,
+                "folder_path": scan_folder,
+                **metadata
+            }
+
+            # Add to list widget
+            display_text = f"{metadata['formatted_date']} ({metadata['num_points']} points)"
+            self.heatmap_list_widget.addItem(display_text)
+
+        # Update footer
+        footer = self.findChild(QLabel, "footer")
+        if footer:
+            footer.setText(
+                f"📊 {len(scan_folders)} saved scan(s)\n"
+                f"📁 Location: {SaveLocations.get_saved_scans_folder()}"
+            )
+
+    def _parse_heatmap_metadata(self, data_path: Path, timestamp_str: str):
+        """Parse metadata from JSON file and timestamp."""
+        metadata = {
+            "timestamp": timestamp_str,
+            "formatted_date": "Unknown Date",
+            "num_points": 0,
+            "grid_size": 0,
+            "min_rssi": None,
+            "max_rssi": None,
+            "avg_rssi": None,
+            "blueprint_dims": None
+        }
+
+        # Parse timestamp: "20251210_143045" -> "Dec 10, 2025 02:30 PM"
+        try:
+            dt = datetime.strptime(timestamp_str, "%Y%m%d_%H%M%S")
+            metadata["formatted_date"] = dt.strftime("%b %d, %Y %I:%M %p")
+        except:
+            pass
+
+        # Parse JSON data
+        if data_path and data_path.exists():
+            try:
+                with open(data_path, 'r') as f:
+                    data = json.load(f)
+                    points = data.get("points", [])
+                    metadata["num_points"] = len(points)
+                    metadata["grid_size"] = data.get("grid_size", 0)
+
+                    # Get blueprint dimensions
+                    dims = data.get("blueprint_dimensions", {})
+                    if dims:
+                        metadata["blueprint_dims"] = f"{dims.get('width')}×{dims.get('height')}"
+
+                    # Calculate RSSI statistics
+                    if points:
+                        rssi_values = [p[2] for p in points if len(p) >= 3]
+                        if rssi_values:
+                            metadata["min_rssi"] = min(rssi_values)
+                            metadata["max_rssi"] = max(rssi_values)
+                            metadata["avg_rssi"] = sum(rssi_values) / len(rssi_values)
+            except Exception as e:
+                print(f"Error parsing {data_path}: {e}")
+
+        return metadata
+
+    def on_heatmap_selected(self, item):
+        """Update blueprint preview when a heatmap is selected."""
+        # Find the corresponding heatmap by list index
+        selected_index = self.heatmap_list_widget.currentRow()
+        heatmap_keys = list(self.heatmap_data.keys())
+
+        if selected_index < 0 or selected_index >= len(heatmap_keys):
+            return
+
+        heatmap_key = heatmap_keys[selected_index]
+        heatmap_info = self.heatmap_data[heatmap_key]
 
         # Load and display the heatmap image
-        if heatmap_path and Path(heatmap_path).exists():
+        heatmap_path = heatmap_info.get('heatmap_path')
+
+        if heatmap_path and heatmap_path.exists():
             pixmap = QPixmap(str(heatmap_path))
             if not pixmap.isNull():
                 # Scale to fit the preview area
@@ -224,31 +340,27 @@ class HeatmapList(QWidget):
                 )
                 self.blueprint_view.setPixmap(scaled_pixmap)
                 self.blueprint_view.setScaledContents(False)
-
-                # Load metadata if available
-                metadata_text = f"Heatmap: {heatmap_name}\n"
-                if data_path and Path(data_path).exists():
-                    try:
-                        with open(data_path, 'r') as f:
-                            data = json.load(f)
-                            num_points = len(data.get('points', []))
-                            timestamp = data.get('timestamp', 'Unknown')
-                            grid_size = data.get('grid_size', 'Unknown')
-                            metadata_text = (
-                                f"Loaded: {heatmap_name}\n"
-                                f"Scan Points: {num_points}\n"
-                                f"Grid Size: {grid_size}px\n"
-                                f"Time: {timestamp}"
-                            )
-                    except Exception as e:
-                        metadata_text += f"\nMetadata error: {str(e)}"
-
-                # Update footer with metadata
-                footer = self.findChild(QLabel, "footer")
-                if footer:
-                    footer.setText(metadata_text)
             else:
                 self.blueprint_view.setText("Error: Could not load image")
+        else:
+            self.blueprint_view.setText("Error: Heatmap file not found")
+
+        # Update footer with detailed metadata
+        footer = self.findChild(QLabel, "footer")
+        if footer:
+            stats_text = f"📊 {heatmap_info['formatted_date']}\n"
+            stats_text += f"📍 Scan Points: {heatmap_info['num_points']}\n"
+
+            if heatmap_info.get('blueprint_dims'):
+                stats_text += f"📐 Blueprint: {heatmap_info['blueprint_dims']}px\n"
+
+            if heatmap_info.get('avg_rssi'):
+                stats_text += f"📶 RSSI Range: {heatmap_info['min_rssi']:.0f} to {heatmap_info['max_rssi']:.0f} dBm "
+                stats_text += f"(avg: {heatmap_info['avg_rssi']:.1f} dBm)\n"
+
+            stats_text += f"📁 {heatmap_info['folder_path'].name}"
+
+            footer.setText(stats_text)
         else:
             self.blueprint_view.setText("Error: Heatmap file not found")
 
