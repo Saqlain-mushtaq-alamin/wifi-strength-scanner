@@ -600,15 +600,8 @@ class ScanPage(QWidget):
         else:
             wifi_text = "WiFi info unavailable"
 
-        # Toast with coordinates + WiFi info
-        InfoBar.success(
-            title="Point added",
-            content=(
-                f"Grid: ({gx}, {gy}) | Image px: ({ix:.1f}, {iy:.1f})\n" + wifi_text
-            ),
-            position=InfoBarPosition.TOP_RIGHT,
-            parent=self
-        )
+    
+ 
 
         # Update status panel for persistent view
         self.status_text.setPlainText(

@@ -7,6 +7,7 @@ from qfluentwidgets import PrimaryPushButton
 from app.ui.heatmap_list import HeatmapList
 from app.ui.widgets.blueprint_viewer import BlueprintViewer
 from app.ui.scan_page import ScanPage
+from app.ui.speedTest import SpeedTestPage
 from PySide6.QtGui import QPainter, QColor, QPen, QBrush, QLinearGradient
 from PySide6.QtCore import QRectF, QPointF, Qt
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QLabel, QWidget
@@ -378,14 +379,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(heatmap_list_page)
 
     def open_speed_test(self):
-        # Placeholder page until Speed Test implementation exists
-        placeholder = QWidget(self)
-        layout = QVBoxLayout(placeholder)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(10)
-        label = QLabel("Speed Test page is under construction.", placeholder)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(label)
-        self.setCentralWidget(placeholder)
+        page = SpeedTestPage(self)
+        self.setCentralWidget(page)
 
 
