@@ -201,7 +201,6 @@ class HeatmapList(QWidget):
         """)
 
     def on_heatmap_selected(self, item):
-<<<<<<< HEAD
         """Update blueprint preview when a heatmap is selected."""
         heatmap_name = item.text()
 
@@ -307,7 +306,3 @@ class HeatmapList(QWidget):
 
         # Set initial message
         self.blueprint_view.setText(f"Found {len(heatmap_files)} heatmap(s).\nSelect one to view.")
-=======
-        # Update blueprint preview when a heatmap is selected.
-        self.blueprint_view.setText(f"Preview: {item.text()}")
->>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
