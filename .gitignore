@@ -7,3 +7,7 @@ venv/
 
 # Ignore IDE workspace files
 *.xml
+
+# Ignore any compressed files
+.zip
+.rar

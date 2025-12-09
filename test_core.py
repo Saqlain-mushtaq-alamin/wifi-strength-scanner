@@ -56,7 +56,7 @@ def test_heatmap_generation():
     print("  ✓ Heatmap generation successful!")
 
     # Save test heatmap
-    cv2.imwrite("test_heatmap.png", heatmap)
+    cv2.imwrite("Tests/test_heatmap.png", heatmap)
     print("  ✓ Test heatmap saved as 'test_heatmap.png'")
     return True
 
@@ -88,7 +88,7 @@ def test_blending():
     print("  ✓ Blending successful!")
 
     # Save result
-    cv2.imwrite("test_blended.png", blended)
+    cv2.imwrite("Tests/test_blended.png", blended)
     print("  ✓ Test blended image saved as 'test_blended.png'")
     return True
 
