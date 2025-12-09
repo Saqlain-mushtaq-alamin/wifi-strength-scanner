@@ -4,8 +4,10 @@ from PySide6.QtWidgets import (
 )
 from qfluentwidgets import PrimaryPushButton
 
+from app.ui.heatmap_list import HeatmapList
 from app.ui.widgets.blueprint_viewer import BlueprintViewer
 from app.ui.scan_page import ScanPage
+from app.ui.speedTest import SpeedTestPage
 from PySide6.QtGui import QPainter, QColor, QPen, QBrush, QLinearGradient
 from PySide6.QtCore import QRectF, QPointF, Qt
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QLabel, QWidget
@@ -15,7 +17,7 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle("WiFi Strength Scanner (wfss)")
+        self.setWindowTitle("WiFi Strength Scanner (WSS)")
         self._setup_ui()
 
     def _setup_ui(self):
@@ -32,72 +34,128 @@ class MainWindow(QMainWindow):
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
 
-# Content widget for background styling
-        content_widget = QWidget() 
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(0)
-
-        content_widget.setStyleSheet("""
-    QWidget {
-        background: qlineargradient(
-            x1:0, y1:0, x2:1, y2:1,
-            stop:0 #0a0f1e,
-            stop:0.5 #0c162c,
-            stop:1 #0d203a
-        );
-    }
-""")
+ 
 
         # =========================================================
         # TITLE SECTION — stays at the top
         # =========================================================
 
-        title_widget = QWidget()
-        title_widget.setObjectName("TitleWidget")
+        class SciFiTitle(QWidget):
+            def __init__(self, parent=None):
+                super().__init__(parent)
+                self.setObjectName("SciFiTitle")
+                self.setFixedHeight(180)
 
-        title_layout = QVBoxLayout(title_widget)
-        title_layout.setContentsMargins(20, 40, 20, 40)
-        title_layout.setSpacing(10)
+                # Content layout
+                title_layout = QVBoxLayout(self)
+                title_layout.setContentsMargins(24, 24, 24, 24)
+                title_layout.setSpacing(6)
 
-        # Main Title
-        title_label = QLabel("wfss")
-        title_label.setStyleSheet("""
-            font-size: 56px;
-            font-weight: bold;
-            color: #e0e7ff;
-            text-shadow: 0px 2px 10px rgba(59, 130, 246, 0.5);
-            letter-spacing: 2px;
-        """)
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                title_label = QLabel("WSS", self)
+                title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                title_label.setStyleSheet("""
+                    color: #e6f2ff;
+                    font-size: 64px;
+                    font-weight: 900;
+                    letter-spacing: 3px;
+                """)
 
-        # Subtitle
-        subtitle_label = QLabel("WiFi Strength Scanner")
-        subtitle_label.setStyleSheet("""
-            font-size: 18px;
-            color: #bfdbfe;
-            font-weight: 500;
-            letter-spacing: 1px;
-        """)
-        subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                subtitle_label = QLabel("WiFi Strength Scanner", self)
+                subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                subtitle_label.setStyleSheet("""
+                    color: #a8caff;
+                    font-size: 18px;
+                    font-weight: 600;
+                    letter-spacing: 1.2px;
+                """)
 
-        title_layout.addWidget(title_label)
-        title_layout.addWidget(subtitle_label)
+                title_layout.addStretch()
+                title_layout.addWidget(title_label)
+                title_layout.addWidget(subtitle_label)
+                title_layout.addStretch()
 
-        title_widget.setStyleSheet("""
-            #TitleWidget {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #3b82f6,
-                    stop:0.5 #1e40af,
-                    stop:1 #0c1117);
-                border: none;
-                border-bottom: 2px solid rgba(59, 130, 246, 0.4);
-                border-bottom-left-radius: 50px;
-                border-bottom-right-radius: 50px;
-            }
-        """)
+                # extra CSS for subtle inner glow of labels
+                self.setStyleSheet("""
+                    #SciFiTitle QLabel {
+                        background: transparent;
+                    }
+                """)
 
-        # Add title to the top
+            def paintEvent(self, event):
+                p = QPainter(self)
+                p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+                r = self.rect().adjusted(10, 6, -10, -6)
+
+                # 3D beveled base plate
+                base_grad = QLinearGradient(r.topLeft(), r.bottomRight())
+                base_grad.setColorAt(0.0, QColor(12, 18, 30, 255))
+                base_grad.setColorAt(0.35, QColor(16, 26, 48, 255))
+                base_grad.setColorAt(0.7, QColor(10, 20, 38, 255))
+                base_grad.setColorAt(1.0, QColor(8, 14, 26, 255))
+                p.setBrush(QBrush(base_grad))
+                p.setPen(QPen(QColor(0, 120, 255, 100), 1.4))
+                p.drawRoundedRect(r, 28, 28)
+
+                # Rim highlight (fake 3D bevel)
+                rim_r = r.adjusted(2, 2, -2, -2)
+                rim_grad = QLinearGradient(rim_r.topLeft(), rim_r.bottomRight())
+                rim_grad.setColorAt(0.0, QColor(0, 180, 255, 50))
+                rim_grad.setColorAt(0.5, QColor(0, 140, 255, 18))
+                rim_grad.setColorAt(1.0, QColor(0, 220, 255, 60))
+                p.setBrush(QBrush(rim_grad))
+                p.setPen(QPen(QColor(0, 170, 255, 90), 1))
+                p.drawRoundedRect(rim_r, 26, 26)
+
+                # Holographic diagonal sheen
+                sheen = QLinearGradient(r.topLeft(), r.bottomRight())
+                sheen.setColorAt(0.0, QColor(0, 0, 0, 0))
+                sheen.setColorAt(0.45, QColor(80, 200, 255, 28))
+                sheen.setColorAt(0.55, QColor(255, 255, 255, 30))
+                sheen.setColorAt(0.65, QColor(80, 200, 255, 28))
+                sheen.setColorAt(1.0, QColor(0, 0, 0, 0))
+                p.setBrush(QBrush(sheen))
+                p.setPen(Qt.PenStyle.NoPen)
+                p.drawRoundedRect(r.adjusted(4, 4, -4, -4), 24, 24)
+
+                # Neon top accent line
+                p.setPen(QPen(QColor(0, 190, 255, 200), 2.2))
+                p.drawLine(r.left() + 20, r.top() + 12, r.right() - 20, r.top() + 12)
+
+                # Circuit grid pattern
+                grid_pen = QPen(QColor(0, 160, 255, 60), 1)
+                p.setPen(grid_pen)
+                step = 42
+                for x in range(int(r.left()) + 28, int(r.right()) - 28, step):
+                    p.drawLine(x, r.top() + 26, x + 36, r.bottom() - 26)
+                for y in range(int(r.top()) + 30, int(r.bottom()) - 30, step):
+                    p.drawLine(r.left() + 24, y, r.right() - 24, y - 18)
+
+                # Nodes / LEDs
+                p.setPen(Qt.PenStyle.NoPen)
+                for i in range(8):
+                    px = r.left() + 60 + i * step
+                    py = r.top() + 40 + (i % 3) * 18
+                    p.setBrush(QColor(120, 210, 255, 190))
+                    p.drawEllipse(QPointF(px, py), 3.6, 3.6)
+                    p.setBrush(QColor(0, 170, 255, 70))
+                    p.drawEllipse(QRectF(px - 10, py - 6, 20, 12))
+
+                # Bottom glow bar
+                glow_r = QRectF(r.left() + 20, r.bottom() - 24, r.width() - 40, 10)
+                glow_grad = QLinearGradient(glow_r.topLeft(), glow_r.bottomRight())
+                glow_grad.setColorAt(0.0, QColor(0, 120, 255, 0))
+                glow_grad.setColorAt(0.5, QColor(0, 180, 255, 180))
+                glow_grad.setColorAt(1.0, QColor(0, 120, 255, 0))
+                p.setBrush(QBrush(glow_grad))
+                p.drawRoundedRect(glow_r, 8, 8)
+
+                # Corner crystal accents
+                p.setBrush(QColor(0, 160, 255, 55))
+                p.drawEllipse(QRectF(r.left() + 18, r.top() + 18, 22, 22))
+                p.drawEllipse(QRectF(r.right() - 40, r.top() + 18, 22, 22))
+
+        title_widget = SciFiTitle(self)
         self.main_layout.addWidget(title_widget)
         self.main_layout.addSpacing(40)
 
@@ -234,7 +292,7 @@ class MainWindow(QMainWindow):
                 left_layout.setContentsMargins(0, 0, 0, 0)
                 left_layout.setSpacing(6)
 
-                title = QLabel("wfss")
+                title = QLabel("WSS")
                 title.setStyleSheet("font-size: 18px; font-weight: 700; color: #bcd7ff; letter-spacing: 1px;")
                 subtitle = QLabel("WiFi Strength Scanner")
                 subtitle = QLabel("saqlain • farhan • tamim • govt")
@@ -243,7 +301,7 @@ class MainWindow(QMainWindow):
                 left_layout.addWidget(title)
                 left_layout.addWidget(subtitle)
 
-                right_chip = QLabel("Gang Bangers", self)
+                right_chip = QLabel("Quantum Innovar", self)
                 right_chip.setStyleSheet("""
                     padding: 6px 12px;
                     color: #e7f1ff;
@@ -309,8 +367,6 @@ class MainWindow(QMainWindow):
         self.footer = SciFiFooter(self)
         self.main_layout.addWidget(self.footer)
     
-
-
     # =========================================================
     # PAGE SWITCHING
     # =========================================================
@@ -319,15 +375,11 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(scan_page)
 
     def open_heatmap_list(self):
-        pass  # Add later
+        heatmap_list_page = HeatmapList(self)
+        self.setCentralWidget(heatmap_list_page)
 
     def open_speed_test(self):
-        # Placeholder page until Speed Test implementation exists
-        placeholder = QWidget(self)
-        layout = QVBoxLayout(placeholder)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(10)
-        label = QLabel("Speed Test page is under construction.", placeholder)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(label)
-        self.setCentralWidget(placeholder)
+        page = SpeedTestPage(self)
+        self.setCentralWidget(page)
+
+
