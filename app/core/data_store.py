@@ -78,7 +78,7 @@ class DataStore:
         except Exception:
             return []
 
-    def add_point(self, x: float, y: float, signal: int):
+    def add_point(self, x: float, y: float, signal: int, rssi: int):
         """
         Append one new scan point.
 
@@ -94,6 +94,7 @@ class DataStore:
             "x": x,
             "y": y,
             "signal": signal,
+            "rssi": rssi,
             "time": datetime.now().isoformat()
         })
         self.save_points(points)
