@@ -49,7 +49,7 @@ class DataStore:
         """
         Save minimal point format:
         [
-            [x, y, signal, rssi],
+            [x, y, rssi],
             ...
         ]
         """
@@ -64,7 +64,7 @@ class DataStore:
         except:
             return []
 
-    def add_point(self, x: float, y: float, signal: int, rssi: int):
+    def add_point(self, x: float, y: float, rssi: int):
         points = self.load_points()
-        points.append([x, y, signal, rssi])
+        points.append([x, y, rssi])
         self.save_points(points)
