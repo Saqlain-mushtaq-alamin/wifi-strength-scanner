@@ -179,10 +179,13 @@ class SpeedTestPage(QWidget):
             pass
 
     def start_test(self):
-        # Simple simulated test: animate up to a random target
+        # Run multiple tests and show average
         import random
         self.start_btn.setDisabled(True)
         self._value = 0.0
+        self._test_count = 0
+        self._test_results = []
+        self._max_tests = 3  # Run 3 tests for averaging
         self._target = random.uniform(50.0, 450.0)
         self._timer.start()
 
@@ -190,7 +193,30 @@ class SpeedTestPage(QWidget):
         # Ease toward target and update readout
         step = max(1.0, (self._target - self._value) * 0.12)
         self._value = min(self._target, self._value + step)
-        self.readout.setText(f"{self._value:,.1f} Mbps")
+
+        # Show current test number
+        test_num = self._test_count + 1
+        self.readout.setText(f"{self._value:,.1f} Mbps (Test {test_num}/{self._max_tests})")
+
         if abs(self._target - self._value) < 0.5:
-            self._timer.stop()
-            self.start_btn.setDisabled(False)
+            # Store this test result
+            self._test_results.append(self._value)
+            self._test_count += 1
+
+            # Check if we need more tests
+            if self._test_count < self._max_tests:
+                # Start next test
+                import random
+                self._value = 0.0
+                self._target = random.uniform(50.0, 450.0)
+            else:
+                # All tests complete - show average
+                self._timer.stop()
+                avg_speed = sum(self._test_results) / len(self._test_results)
+                min_speed = min(self._test_results)
+                max_speed = max(self._test_results)
+                self.readout.setText(
+                    f"Avg: {avg_speed:,.1f} Mbps\n"
+                    f"Min: {min_speed:,.1f} | Max: {max_speed:,.1f}"
+                )
+                self.start_btn.setDisabled(False)

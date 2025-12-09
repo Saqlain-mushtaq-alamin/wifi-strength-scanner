@@ -201,5 +201,108 @@ class HeatmapList(QWidget):
         """)
 
     def on_heatmap_selected(self, item):
-        # Update blueprint preview when a heatmap is selected.
-        self.blueprint_view.setText(f"Preview: {item.text()}")
+        """Update blueprint preview when a heatmap is selected."""
+        heatmap_name = item.text()
+
+        if heatmap_name not in self.heatmap_data:
+            self.blueprint_view.setText(f"Error: Heatmap data not found")
+            return
+
+        heatmap_info = self.heatmap_data[heatmap_name]
+        heatmap_path = heatmap_info.get('heatmap_path')
+        data_path = heatmap_info.get('data_path')
+
+        # Load and display the heatmap image
+        if heatmap_path and Path(heatmap_path).exists():
+            pixmap = QPixmap(str(heatmap_path))
+            if not pixmap.isNull():
+                # Scale to fit the preview area
+                scaled_pixmap = pixmap.scaled(
+                    self.blueprint_view.size(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                self.blueprint_view.setPixmap(scaled_pixmap)
+                self.blueprint_view.setScaledContents(False)
+
+                # Load metadata if available
+                metadata_text = f"Heatmap: {heatmap_name}\n"
+                if data_path and Path(data_path).exists():
+                    try:
+                        with open(data_path, 'r') as f:
+                            data = json.load(f)
+                            num_points = len(data.get('points', []))
+                            timestamp = data.get('timestamp', 'Unknown')
+                            grid_size = data.get('grid_size', 'Unknown')
+                            metadata_text = (
+                                f"Loaded: {heatmap_name}\n"
+                                f"Scan Points: {num_points}\n"
+                                f"Grid Size: {grid_size}px\n"
+                                f"Time: {timestamp}"
+                            )
+                    except Exception as e:
+                        metadata_text += f"\nMetadata error: {str(e)}"
+
+                # Update footer with metadata
+                footer = self.findChild(QLabel, "footer")
+                if footer:
+                    footer.setText(metadata_text)
+            else:
+                self.blueprint_view.setText("Error: Could not load image")
+        else:
+            self.blueprint_view.setText("Error: Heatmap file not found")
+
+    def load_heatmaps(self):
+        """Scan the resources/blueprint/heatmaps directory for saved heatmaps."""
+        self.heatmap_list_widget.clear()
+        self.heatmap_data.clear()
+
+        # Find heatmaps directory
+        # Try multiple possible locations
+        possible_paths = [
+            Path(__file__).parent.parent / "resources" / "blueprint" / "heatmaps",
+            Path.cwd() / "app" / "resources" / "blueprint" / "heatmaps",
+            Path.cwd() / "resources" / "blueprint" / "heatmaps",
+        ]
+
+        heatmaps_dir = None
+        for path in possible_paths:
+            if path.exists() and path.is_dir():
+                heatmaps_dir = path
+                break
+
+        if not heatmaps_dir:
+            self.heatmap_list_widget.addItem("No heatmaps directory found")
+            return
+
+        # Find all heatmap files
+        heatmap_files = sorted(heatmaps_dir.glob("heatmap_*.png"), reverse=True)
+
+        if not heatmap_files:
+            self.heatmap_list_widget.addItem("No heatmaps saved yet")
+            self.blueprint_view.setText("Generate some heatmaps first!")
+            return
+
+        # Load each heatmap
+        for heatmap_file in heatmap_files:
+            # Extract timestamp from filename (e.g., heatmap_20251209_213232.png)
+            timestamp_str = heatmap_file.stem.replace("heatmap_", "")
+
+            # Look for corresponding data file
+            data_file = heatmaps_dir / f"scan_data_{timestamp_str}.json"
+
+            # Create display name
+            display_name = f"Heatmap {timestamp_str}"
+
+            # Store the paths
+            self.heatmap_data[display_name] = {
+                'heatmap_path': str(heatmap_file),
+                'data_path': str(data_file) if data_file.exists() else None
+            }
+
+            # Add to list
+            item = QListWidgetItem(display_name)
+            self.heatmap_list_widget.addItem(item)
+
+        # Set initial message
+        self.blueprint_view.setText(f"Found {len(heatmap_files)} heatmap(s).\nSelect one to view.")
