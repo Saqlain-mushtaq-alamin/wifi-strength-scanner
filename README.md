@@ -7,8 +7,7 @@ A comprehensive tool for scanning and visualizing WiFi signal strength with heat
 ```
 wifi-strength-scanner/
 ├── app/
-│   ├── main.py
-│   ├── config.py
+│   │
 │   ├── resources/              # Icons, QRC files, default images
 │   ├── ui/                     # UI-related files
 │   │   ├── main_window.py
@@ -33,8 +32,9 @@ wifi-strength-scanner/
 │   ├── installer/              # NSIS or Inno Setup scripts
 │   ├── dist/                   # Final .exe output
 │   └── pyinstaller.spec
+├── main.py
+├── config.py
 ├── requirements.txt
 ├── README.md
 └── LICENSE
 ```
-
