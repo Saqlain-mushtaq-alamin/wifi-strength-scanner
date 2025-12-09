@@ -5,10 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6079a51d-9be1-4bbc-bef6-730e7af7a280" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/wifi-strength-scanner.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/wifi-strength-scanner.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/core/data_store.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/data_store.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pip_installations.txt" beforeDir="false" afterPath="$PROJECT_DIR$/pip_installations.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -29,6 +28,7 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.main.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
@@ -65,6 +65,7 @@
       <workItem from="1764998145675" duration="1268000" />
       <workItem from="1765256045112" duration="194000" />
       <workItem from="1765259344727" duration="2331000" />
+      <workItem from="1765262214667" duration="2533000" />
     </task>
     <servers />
   </component>

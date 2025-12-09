@@ -66,7 +66,7 @@ class DataStore:
     # ----------------------------------------------------------------------
 
     def save_points(self, points: list):
-        """Save all WiFi scan points to points.json"""
+        """Save all Wi-Fi scan points to points.json"""
         with open(self.points_file, "w", encoding="utf-8") as f:
             json.dump(points, f, indent=4)
 
