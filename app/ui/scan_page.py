@@ -9,8 +9,7 @@ from app.ui.widgets.blueprint_viewer import BlueprintViewer
 from app.core.scanner import WifiScanner
 from PySide6.QtWidgets import QApplication, QStackedWidget
 from PySide6.QtWidgets import QLabel, QTextEdit
-from PySide6.QtWidgets import QGraphicsDropShadowEffect, QGraphicsOpacityEffect
-from PySide6.QtCore import QPropertyAnimation, QEasingCurve
+from PySide6.QtWidgets import QGraphicsDropShadowEffect
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon, QColor
 from PySide6.QtCore import QSize
@@ -22,6 +21,11 @@ from PySide6.QtWidgets import QToolButton
 class ScanPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        # Data storage for scan points: [(x, y, rssi), ...]
+        self.scan_points = []
+        self.blueprint_path = None
+
         self._scan_ui()
 
     def _scan_ui(self):
@@ -515,22 +519,13 @@ class ScanPage(QWidget):
 
         # Wire buttons
         self.upload_btn.clicked.connect(self._on_upload_clicked)
-        self.generate_btn.clicked.connect(self._on_upload_clicked)  # TODO: replace with real handler
+        self.generate_btn.clicked.connect(self._on_generate_heatmap)
 
         right_col.addStretch(1)
         content_row.addStretch(1)
         content_row.addLayout(right_col, 0)
 
-        # Update status_text whenever a point is clicked
-        def _update_status(gx: int, gy: int, ix: float, iy: float, wifi_text: str, px:int):
-            self.status_text.setPlainText(
-            f"Last point:\n"
-            f"  Grid -> ({gx}, {gy})\n"
-            f"  Image px -> ({ix:.1f}, {iy:.1f})"
-            f"WiFi:\n  {wifi_text} \n\n"
-            f"Pixels:  {px}"
-            )
-        self.viewer.pointClicked.connect(_update_status)
+        # Note: status updates are handled in _on_point_clicked
 
         cp_layout.addLayout(content_row)
         cp_layout.addStretch(1)
@@ -567,7 +562,19 @@ class ScanPage(QWidget):
             )
             return
 
+        self.blueprint_path = file_path
         self.viewer.set_pixmap(pix)
+
+        # Clear previous scan points when new blueprint is loaded
+        self.scan_points.clear()
+        self.viewer.clear_markers()
+
+        InfoBar.success(
+            title="Blueprint Loaded",
+            content=f"Successfully loaded: {Path(file_path).name}",
+            position=InfoBarPosition.TOP,
+            parent=self
+        )
 
     # Callback when a point is clicked in the viewer
 
@@ -582,11 +589,13 @@ class ScanPage(QWidget):
             wifi_info = {"error": str(e)}
 
         # Build a concise message
+        rssi_value = None
         if wifi_info and isinstance(wifi_info, dict):
             ssid = wifi_info.get("ssid")
             bssid = wifi_info.get("bssid")
             signal = wifi_info.get("signal")
             rssi = wifi_info.get("rssi")
+            rssi_value = rssi  # Store for data collection
             channel = wifi_info.get("channel")
             radio = wifi_info.get("radio")
             band = wifi_info.get("band")
@@ -600,8 +609,14 @@ class ScanPage(QWidget):
         else:
             wifi_text = "WiFi info unavailable"
 
-    
- 
+        # Store the scan point data (x, y, rssi)
+        if rssi_value is not None:
+            self.scan_points.append((ix, iy, rssi_value))
+            print(f"Stored scan point: ({ix:.1f}, {iy:.1f}, {rssi_value})")
+        else:
+            # If no rssi, still allow manual input or placeholder
+            print(f"Warning: No RSSI value for point ({ix:.1f}, {iy:.1f})")
+
 
         # Update status panel for persistent view
         self.status_text.setPlainText(
@@ -609,10 +624,115 @@ class ScanPage(QWidget):
             f"  Grid -> ({gx}, {gy})\n"
             f"  Image px -> ({ix:.1f}, {iy:.1f})\n\n"
             f"WiFi:\n  {wifi_text}\n\n"
-            f"grid size: {self.viewer._grid_px}px\n "
+            f"Grid size: {self.viewer._grid_px}px\n"
+            f"Total points collected: {len(self.scan_points)}"
         )
 
         # Also print to terminal for debugging
         print(
             f"Clicked grid=({gx},{gy}) image=({ix:.1f},{iy:.1f}); {wifi_text}"
         )
+
+    def _on_generate_heatmap(self):
+        """Generate heatmap from collected scan points and blend with blueprint."""
+        # Validate we have data
+        if not self.scan_points:
+            InfoBar.warning(
+                title="No Data",
+                content="Please scan some WiFi points first by clicking on the blueprint.",
+                position=InfoBarPosition.TOP,
+                parent=self
+            )
+            return
+
+        if not self.blueprint_path:
+            InfoBar.warning(
+                title="No Blueprint",
+                content="Please upload a blueprint image first.",
+                position=InfoBarPosition.TOP,
+                parent=self
+            )
+            return
+
+        try:
+            import cv2
+            import numpy as np
+            from app.core.heatmap_engine import generate_heatmap
+            from app.core.image_blender import blend
+
+            # Load blueprint as OpenCV image
+            blueprint_bgr = cv2.imread(self.blueprint_path)
+            if blueprint_bgr is None:
+                InfoBar.error(
+                    title="Error",
+                    content="Failed to load blueprint image.",
+                    position=InfoBarPosition.TOP,
+                    parent=self
+                )
+                return
+
+            height, width = blueprint_bgr.shape[:2]
+
+            # Generate heatmap using collected points
+            print(f"Generating heatmap from {len(self.scan_points)} points...")
+            print(f"Blueprint size: {width}x{height}")
+
+            heatmap_bgr = generate_heatmap(
+                points=self.scan_points,
+                width=width,
+                height=height,
+                power=2
+            )
+
+            # Blend heatmap with blueprint
+            blended = blend(blueprint_bgr, heatmap_bgr, alpha=0.6)
+
+            # Save the result
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_dir = Path(self.blueprint_path).parent / "heatmaps"
+            output_dir.mkdir(exist_ok=True)
+
+            output_path = output_dir / f"heatmap_{timestamp}.png"
+            cv2.imwrite(str(output_path), blended)
+
+            # Also save scan points data
+            data_path = output_dir / f"scan_data_{timestamp}.json"
+            import json
+            with open(data_path, 'w') as f:
+                json.dump({
+                    'blueprint': str(self.blueprint_path),
+                    'timestamp': timestamp,
+                    'points': [(float(x), float(y), float(rssi)) for x, y, rssi in self.scan_points],
+                    'grid_size': self.viewer._grid_px
+                }, f, indent=2)
+
+            InfoBar.success(
+                title="Heatmap Generated",
+                content=f"Saved to: {output_path.name}",
+                position=InfoBarPosition.TOP,
+                parent=self,
+                duration=5000
+            )
+
+            print(f"Heatmap saved to: {output_path}")
+            print(f"Scan data saved to: {data_path}")
+
+            # Display the result in the viewer
+            result_pixmap = QPixmap(str(output_path))
+            if not result_pixmap.isNull():
+                self.viewer.set_pixmap(result_pixmap)
+                self.viewer.clear_markers()  # Clear markers since we're now showing the result
+
+        except Exception as e:
+            InfoBar.error(
+                title="Generation Failed",
+                content=f"Error: {str(e)}",
+                position=InfoBarPosition.TOP,
+                parent=self,
+                duration=5000
+            )
+            print(f"Heatmap generation error: {e}")
+            import traceback
+            traceback.print_exc()
+

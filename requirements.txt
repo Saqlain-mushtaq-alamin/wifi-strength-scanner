@@ -1,0 +1,13 @@
+# WiFi Strength Scanner - Python Dependencies
+
+# GUI Framework
+PySide6>=6.5.0
+PySide6-Fluent-Widgets>=1.5.0
+
+# Image processing and computer vision
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# Additional utilities
+Pillow>=10.0.0
+
