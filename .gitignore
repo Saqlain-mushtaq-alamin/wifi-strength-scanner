@@ -8,6 +8,6 @@ venv/
 # Ignore IDE workspace files
 *.xml
 
-# Ignore any compressed files
+# Ignore compressed files
 .zip
 .rar

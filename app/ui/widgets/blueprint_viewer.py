@@ -7,14 +7,26 @@ from PySide6.QtWidgets import QWidget
 
 
 class BlueprintViewer(QWidget):
+<<<<<<< HEAD
     # Emits: imageX, imageY (float pixel coordinates)
     pointClicked = Signal(float, float)
+=======
+    # Emits: gridX, gridY, imageX, imageY (float)
+    pointClicked = Signal(int, int, float, float)
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._pixmap: QPixmap | None = None
         self._markers: List[QPointF] = []
 
+<<<<<<< HEAD
+=======
+        # Grid resolution (pixels per cell) — tune this to your needs:
+        # e.g., 50 or 100
+        self._grid_px: int = 100  # <<< adjust grid size here
+
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
         self.setMouseTracking(False)
         self.setMinimumSize(100, 100)
 
@@ -24,6 +36,18 @@ class BlueprintViewer(QWidget):
         self._markers.clear()
         self.update()
 
+<<<<<<< HEAD
+=======
+    def set_grid_size(self, px: int):
+        if px > 0:
+            self._grid_px = px
+            self.update()
+            print(f"BlueprintViewer: grid size set to {px} px")
+
+    # Backward-compatible alias used by some callers
+    def set_grid_px(self, px: int):
+        self.set_grid_size(px)
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
 
     def clear_markers(self):
         self._markers.clear()
@@ -65,12 +89,24 @@ class BlueprintViewer(QWidget):
         if event.button() == Qt.MouseButton.LeftButton and self._pixmap:
             img_pt = self._widget_to_image(event.position())
             if img_pt is not None:
+<<<<<<< HEAD
+=======
+                # Convert to grid cell
+                gx = int(img_pt.x() // self._grid_px)
+                gy = int(img_pt.y() // self._grid_px)
+
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
                 # Store marker in image coordinates
                 self._markers.append(img_pt)
                 self.update()
 
+<<<<<<< HEAD
                 # Emit clicked signal with pixel coordinates
                 self.pointClicked.emit(float(img_pt.x()), float(img_pt.y()))
+=======
+                # Emit clicked signal
+                self.pointClicked.emit(gx, gy, float(img_pt.x()), float(img_pt.y()))
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
         super().mousePressEvent(event)
 
     def paintEvent(self, event):

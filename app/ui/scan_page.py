@@ -1,15 +1,27 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
+<<<<<<< HEAD
     QWidget, QFileDialog, QVBoxLayout, QHBoxLayout
+=======
+    QWidget, QFileDialog, QVBoxLayout, QHBoxLayout, QSlider
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
 )
 from qfluentwidgets import PrimaryPushButton, InfoBar, InfoBarPosition
 
 from app.ui.widgets.blueprint_viewer import BlueprintViewer
+<<<<<<< HEAD
 from app.ui.wifi_input_dialog import WiFiInputDialog
 from PySide6.QtWidgets import QApplication, QStackedWidget
 from PySide6.QtWidgets import QLabel, QTextEdit
 from PySide6.QtWidgets import QGraphicsDropShadowEffect
+=======
+from app.core.scanner import WifiScanner
+from PySide6.QtWidgets import QApplication, QStackedWidget
+from PySide6.QtWidgets import QLabel, QTextEdit
+from PySide6.QtWidgets import QGraphicsDropShadowEffect
+from PySide6.QtCore import QTimer
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
 from PySide6.QtGui import QIcon, QColor
 from PySide6.QtCore import QSize
 from pathlib import Path
@@ -223,14 +235,54 @@ class ScanPage(QWidget):
 
 
 
+<<<<<<< HEAD
         # Left: vertical heatmap color scale (in a fixed-width panel)
         left_panel = QWidget(control_panel)
         left_panel.setObjectName("leftPanel")
         left_panel.setFixedWidth(60)  # narrower now that grid slider is removed
+=======
+        # Left: vertical grid scale + vertical slider (in a fixed-width panel to avoid overlap)
+        left_panel = QWidget(control_panel)
+        left_panel.setObjectName("leftPanel")
+        left_panel.setFixedWidth(100)  # wider to fit numeric labels
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
         left_panel_layout = QVBoxLayout(left_panel)
         left_panel_layout.setContentsMargins(0, 0, 0, 0)
         left_panel_layout.setSpacing(6)
 
+<<<<<<< HEAD
+=======
+        # Move the vertical heatmap color scale to the left side of the horizontal slider row
+        def _reposition_color_scale():
+            try:
+                color_scale_container = self.findChild(QWidget, "colorScaleContainer")
+                if not color_scale_container:
+                    return
+                # Get the slider row layout (first item of self.slider's QVBoxLayout)
+                sp_layout = getattr(self.slider, "layout", lambda: None)()
+                if not sp_layout or sp_layout.count() == 0:
+                    return
+                slider_row_item = sp_layout.itemAt(0)
+                slider_row = slider_row_item.layout() if slider_row_item else None
+                if not slider_row:
+                    return
+
+                # Remove color_scale_container from its current parent layout
+                parent_layout = color_scale_container.parentWidget().layout() if color_scale_container.parentWidget() else None
+                if parent_layout:
+                    for i in range(parent_layout.count()):
+                        item = parent_layout.itemAt(i)
+                        if item and item.widget() is color_scale_container:
+                            parent_layout.takeAt(i)
+                            break
+
+                color_scale_container.setParent(self.slider)
+                slider_row.insertWidget(0, color_scale_container, 0, Qt.AlignmentFlag.AlignTop)
+            except Exception:
+                pass
+
+        QTimer.singleShot(0, _reposition_color_scale)
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
         color_scale_container = QWidget(left_panel)
         color_scale_container.setObjectName("colorScaleContainer")
         color_scale_layout = QVBoxLayout(color_scale_container)
@@ -265,8 +317,118 @@ class ScanPage(QWidget):
         low_lbl.setStyleSheet("color: #d7eaff; font-size: 10px;")
         color_scale_layout.addWidget(low_lbl, 0)
 
+<<<<<<< HEAD
         # add to the left panel
         left_panel_layout.addWidget(color_scale_container, 0, Qt.AlignmentFlag.AlignTop)
+=======
+        # add to the left panel (placed near the slider area)
+        left_panel_layout.addWidget(color_scale_container, 0, Qt.AlignmentFlag.AlignTop)
+
+
+        
+
+        # A compact container holding: [labels | slider] and a bottom caption "Grid"
+        self.slider = QWidget(left_panel)  # container widget (keeps external addWidget(self.slider) intact)
+        slider_panel_layout = QVBoxLayout(self.slider)
+        slider_panel_layout.setContentsMargins(0, 0, 0, 0)
+        slider_panel_layout.setSpacing(4)
+
+        # Row: labels (left) + real slider (right)
+        slider_row = QHBoxLayout()
+        slider_row.setContentsMargins(0, 0, 0, 0)
+        slider_row.setSpacing(6)
+
+        # Numeric labels on the left (0..200 step 25), arranged top->bottom to align with the slider
+        labels_col = QVBoxLayout()
+        labels_col.setContentsMargins(0, 0, 0, 0)
+        labels_col.setSpacing(0)
+
+        # Build marks from 200 (top) down to 0 (bottom) to match vertical slider
+        marks = list(range(200, -1, -25))
+        for i, val in enumerate(marks):
+            lbl = QLabel(str(val), self.slider)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            lbl.setStyleSheet("color: #cfe7ff; font-size: 10px;")
+            labels_col.addWidget(lbl, 0)
+            if i != len(marks) - 1:
+                labels_col.addStretch(1)  # distribute labels evenly
+
+        slider_row.addLayout(labels_col, 0)
+
+        # The actual slider controlling grid size
+        self.grid_slider = QSlider(Qt.Orientation.Vertical, self.slider)
+        self.grid_slider.setMinimum(0)
+        self.grid_slider.setMaximum(200)           # 0..200 as requested
+        self.grid_slider.setSingleStep(5)
+        self.grid_slider.setPageStep(25)
+        # Try to initialize from viewer's current grid size if available
+        try:
+            current_grid = int(getattr(self.viewer, "_grid_px", 100))
+        except Exception:
+            current_grid = 100
+        self.grid_slider.setValue(max(self.grid_slider.minimum(), min(self.grid_slider.maximum(), current_grid)))
+        self.grid_slider.setFixedSize(26, 150)     # a little taller
+        self.grid_slider.setTickPosition(QSlider.TickPosition.TicksLeft)
+        self.grid_slider.setTickInterval(25)
+        self.grid_slider.setStyleSheet("""
+            QSlider::groove:vertical {
+            border: 1px solid #bbb;
+            background: #2a2f35;
+            width: 8px;
+            border-radius: 4px;
+            }
+            QSlider::sub-page:vertical {
+            background: #4b5563;
+            border: 1px solid #3b82f6;
+            width: 8px;
+            border-radius: 4px;
+            }
+            QSlider::add-page:vertical {
+            background: #2a2f35;
+            border: 1px solid #777;
+            width: 8px;
+            border-radius: 4px;
+            }
+            QSlider::handle:vertical {
+            background: #4da6ff;
+            border: 1px solid #2980b9;
+            width: 18px;
+            height: 18px;
+            margin: 0;
+            border-radius: 9px;
+            }
+        """)
+        slider_row.addWidget(self.grid_slider, 0, Qt.AlignmentFlag.AlignTop)
+
+        slider_panel_layout.addLayout(slider_row, 0)
+
+        # Bottom caption "Grid"
+        grid_caption = QLabel("Grid/px", self.slider)
+        grid_caption.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+        grid_caption.setStyleSheet("color: #d7eaff; font-size: 11px;")
+        slider_panel_layout.addWidget(grid_caption, 0, Qt.AlignmentFlag.AlignTop)
+
+        # When the slider changes, update BlueprintViewer grid size
+        def _apply_grid_size(val: int):
+            v = int(val)
+            try:
+                # Prefer public API set_grid_size; fallback to alias set_grid_px; else mutate attr
+                setter = getattr(self.viewer, "set_grid_size", None)
+                if not callable(setter):
+                    setter = getattr(self.viewer, "set_grid_px", None)
+                if callable(setter):
+                    setter(v)
+                else:
+                    setattr(self.viewer, "_grid_px", v)
+                    upd = getattr(self.viewer, "update", None)
+                    if callable(upd):
+                        upd()
+            except Exception:
+                pass
+
+        self.grid_slider.valueChanged.connect(_apply_grid_size)
+        left_panel_layout.addWidget(self.slider, 0, Qt.AlignmentFlag.AlignTop)
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
         left_panel_layout.addStretch(1)
 
         # Add the left fixed panel to the content row
@@ -443,6 +605,7 @@ class ScanPage(QWidget):
     # Callback when a point is clicked in the viewer
 
 
+<<<<<<< HEAD
     def _on_point_clicked(self, ix: float, iy: float):
         """Show dialog to choose between auto-scan or manual RSSI input."""
         # Show the dialog
@@ -461,11 +624,28 @@ class ScanPage(QWidget):
         rssi_value = dialog.rssi_value
 
         # Build a concise message
+=======
+    def _on_point_clicked(self, gx: int, gy: int, ix: float, iy: float):
+        # Fetch WiFi scan details and display along with coordinates
+        wifi_info = None
+        try:
+            wifi_info = WifiScanner.scan()
+ 
+        except Exception as e:
+            wifi_info = {"error": str(e)}
+
+        # Build a concise message
+        rssi_value = None
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
         if wifi_info and isinstance(wifi_info, dict):
             ssid = wifi_info.get("ssid")
             bssid = wifi_info.get("bssid")
             signal = wifi_info.get("signal")
             rssi = wifi_info.get("rssi")
+<<<<<<< HEAD
+=======
+            rssi_value = rssi  # Store for data collection
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
             channel = wifi_info.get("channel")
             radio = wifi_info.get("radio")
             band = wifi_info.get("band")
@@ -486,23 +666,38 @@ class ScanPage(QWidget):
         else:
             # If no rssi, still allow manual input or placeholder
             print(f"Warning: No RSSI value for point ({ix:.1f}, {iy:.1f})")
+<<<<<<< HEAD
             # Remove the marker if no valid data
             if self.viewer._markers:
                 self.viewer._markers.pop()
                 self.viewer.update()
             return
+=======
+
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
 
         # Update status panel for persistent view
         self.status_text.setPlainText(
             f"Last point:\n"
+<<<<<<< HEAD
             f"  Pixel coordinates -> ({ix:.1f}, {iy:.1f})\n\n"
             f"WiFi:\n  {wifi_text}\n\n"
+=======
+            f"  Grid -> ({gx}, {gy})\n"
+            f"  Image px -> ({ix:.1f}, {iy:.1f})\n\n"
+            f"WiFi:\n  {wifi_text}\n\n"
+            f"Grid size: {self.viewer._grid_px}px\n"
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
             f"Total points collected: {len(self.scan_points)}"
         )
 
         # Also print to terminal for debugging
         print(
+<<<<<<< HEAD
             f"Clicked at pixel=({ix:.1f},{iy:.1f}); {wifi_text}"
+=======
+            f"Clicked grid=({gx},{gy}) image=({ix:.1f},{iy:.1f}); {wifi_text}"
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
         )
 
     def _on_generate_heatmap(self):
@@ -575,7 +770,12 @@ class ScanPage(QWidget):
                 json.dump({
                     'blueprint': str(self.blueprint_path),
                     'timestamp': timestamp,
+<<<<<<< HEAD
                     'points': [(float(x), float(y), float(rssi)) for x, y, rssi in self.scan_points]
+=======
+                    'points': [(float(x), float(y), float(rssi)) for x, y, rssi in self.scan_points],
+                    'grid_size': self.viewer._grid_px
+>>>>>>> 444f61285cf23e5cd1a698db2026bff8a6846fc6
                 }, f, indent=2)
 
             InfoBar.success(
